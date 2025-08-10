@@ -1,0 +1,191 @@
+import csv
+import os
+import json
+import tkinter as tk
+from tkinter import ttk, messagebox
+
+
+class AdditionalWindow(tk.Toplevel):
+    def __init__(self, parent, responsible_value="", department_value=""):
+        super().__init__(parent)
+        self.title("Введення даних щодо МКП")
+        self.parent = parent
+
+        # Завантаження типів із JSON
+        try:
+            with open("phone_types.json", "r", encoding="utf-8") as f:
+                self.types_config = json.load(f)
+        except FileNotFoundError:
+            messagebox.showerror("Помилка", "Файл phone_types.json не знайдено.")
+            self.destroy()
+            return
+        except json.JSONDecodeError:
+            messagebox.showerror("Помилка", "Файл phone_types.json містить помилку.")
+            self.destroy()
+            return
+
+        self.special_types = self.types_config.get("special_types", [])
+        self.default_type = self.types_config.get("default", "звичайний")
+
+        self.type_var = tk.StringVar(value=self.default_type)
+
+        self.create_widgets()
+
+        self.responsible_entry.insert(0, responsible_value)
+        self.department_entry.insert(0, department_value)
+
+        self.on_type_change()
+
+    def create_widgets(self):
+        # Рядок 0
+        ttk.Label(self, text="Відповідальний:").grid(row=0, column=0, sticky="w", padx=5, pady=5)
+        self.responsible_entry = ttk.Entry(self, width=30)
+        self.responsible_entry.grid(row=0, column=1, sticky="w", padx=5, pady=5)
+
+        ttk.Label(self, text="Відділ:").grid(row=0, column=2, sticky="w", padx=5, pady=5)
+        self.department_entry = ttk.Entry(self, width=30)
+        self.department_entry.grid(row=0, column=3, sticky="w", padx=5, pady=5)
+
+        # Рядок 1
+        ttk.Label(self, text="Статичний MAC:").grid(row=1, column=0, sticky="w", padx=5, pady=5)
+        self.mac_entry = ttk.Entry(self, width=30)
+        self.mac_entry.grid(row=1, column=1, sticky="w", padx=5, pady=5)
+
+        ttk.Label(self, text="Модель:").grid(row=1, column=2, sticky="w", padx=5, pady=5)
+        self.model_entry = ttk.Entry(self, width=30)
+        self.model_entry.grid(row=1, column=3, sticky="w", padx=5, pady=5)
+
+        # Рядок 2
+        ttk.Label(self, text="Динамічний MAC:").grid(row=2, column=0, sticky="w", padx=5, pady=5)
+        self.dynamic_mac_entry = ttk.Entry(self, width=30)
+        self.dynamic_mac_entry.grid(row=2, column=1, sticky="w", padx=5, pady=5)
+
+        # Рядок 3: Тип МКП
+        ttk.Label(self, text="Тип МКП:").grid(row=3, column=0, sticky="w", padx=5, pady=5)
+
+        # Фрейм для RadioButton'ів типу
+        type_frame = ttk.Frame(self)
+        type_frame.grid(row=4, column=0, columnspan=4, sticky="w", padx=10, pady=0)
+
+        # Додаємо "звичайний"
+        ttk.Radiobutton(
+            type_frame,
+            text=self.default_type,
+            variable=self.type_var,
+            value=self.default_type,
+            command=self.on_type_change
+        ).pack(side="left", padx=5)
+
+        # Додаємо всі типи з special_types
+        for type_name in self.special_types:
+            ttk.Radiobutton(
+                type_frame,
+                text=type_name,
+                variable=self.type_var,
+                value=type_name,
+                command=self.on_type_change
+            ).pack(side="left", padx=5)
+
+        # AV Frame
+        self.av_var = tk.StringVar()
+        self.av_frame = ttk.LabelFrame(self, text="AV")
+        self.av_frame.grid(row=5, column=0, columnspan=4, sticky="w", padx=10, pady=5)
+
+        self.av_radio_installed = ttk.Radiobutton(
+            self.av_frame, text="Встановлено", variable=self.av_var,
+            value="Встановлено", command=self.on_av_change, state="disabled"
+        )
+        self.av_radio_installed.grid(row=0, column=0, padx=5, pady=2, sticky="w")
+
+        self.av_radio_not_installed = ttk.Radiobutton(
+            self.av_frame, text="Не встановлено", variable=self.av_var,
+            value="Не встановлено", command=self.on_av_change, state="disabled"
+        )
+        self.av_radio_not_installed.grid(row=0, column=1, padx=5, pady=2, sticky="w")
+
+        # Рядок 6: Пошта
+        ttk.Label(self, text="Пошта:").grid(row=6, column=0, sticky="e", padx=5, pady=5)
+        self.email_entry = ttk.Entry(self, state="disabled", width=70)
+        self.email_entry.grid(row=6, column=1, columnspan=3, sticky="w", padx=5, pady=5)
+
+        # Кнопки
+        btn_frame = ttk.Frame(self)
+        btn_frame.grid(row=7, column=0, columnspan=4, pady=10)
+
+        save_btn = ttk.Button(btn_frame, text="Зберегти", command=self.save_data_to_csv)
+        save_btn.pack(side="left", padx=10)
+
+        cancel_btn = ttk.Button(btn_frame, text="Відміна", command=self.cancel)
+        cancel_btn.pack(side="left", padx=10)
+
+        self.protocol("WM_DELETE_WINDOW", self.cancel)
+
+    def on_type_change(self):
+        current_type = self.type_var.get()
+
+        if current_type in self.special_types:
+            self.av_radio_installed.config(state="normal")
+            self.av_radio_not_installed.config(state="normal")
+
+            av_value = self.av_var.get()
+            if av_value == "встановлено":
+                self.email_entry.delete(0, tk.END)
+                self.email_entry.config(state="disabled")
+            elif av_value == "не встановлено":
+                self.email_entry.config(state="normal")
+            else:
+                self.email_entry.delete(0, tk.END)
+                self.email_entry.config(state="disabled")
+        else:
+            self.av_var.set("")
+            self.av_radio_installed.config(state="disabled")
+            self.av_radio_not_installed.config(state="disabled")
+            self.email_entry.delete(0, tk.END)
+            self.email_entry.config(state="disabled")
+
+    def on_av_change(self):
+        if self.av_var.get() == "встановлено":
+            self.email_entry.delete(0, tk.END)
+            self.email_entry.config(state="disabled")
+        else:
+            self.email_entry.config(state="normal")
+
+    def save_data(self):
+        data = self.collect_data()
+        print("Збережені дані:", data)
+        self.destroy()
+
+    def cancel(self):
+        self.destroy()
+
+    def collect_data(self):
+        return {
+            "Відповідальний": self.responsible_entry.get(),
+            "Відділ": self.department_entry.get(),
+            "Статичний MAC": self.mac_entry.get(),
+            "Динамічний MAC": self.dynamic_mac_entry.get(),
+            "Модель": self.model_entry.get(),
+            "Тип МКП": self.type_var.get(),
+            "AV": self.av_var.get(),
+            "Пошта": self.email_entry.get()
+        }
+
+    def save_data_to_csv(self):
+        data = self.collect_data()
+        filename = "collected_phone_data.csv"
+        file_exists = os.path.isfile(filename)
+
+        try:
+            with open(filename, "a", encoding="utf-8", newline="") as f:
+                fieldnames = list(data.keys())
+                writer = csv.DictWriter(f, fieldnames=fieldnames)
+
+                if not file_exists:
+                    writer.writeheader()
+
+                writer.writerow(data)
+
+            messagebox.showinfo("Успіх", f"Дані успішно збережено у {filename}")
+            self.destroy()
+        except Exception as e:
+            messagebox.showerror("Помилка", f"Не вдалося зберегти дані:\n{e}")
