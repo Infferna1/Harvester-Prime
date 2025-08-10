@@ -86,9 +86,11 @@ class AdditionalWindow(tk.Toplevel):
                 command=self.on_type_change
             ).pack(side="left", padx=5)
 
-        # AV Frame
+        # Рядок 5: AV + S/N
         self.av_var = tk.StringVar()
-        self.av_frame = ttk.LabelFrame(self, text="AV")
+        self.sn_var = tk.StringVar()
+
+        self.av_frame = ttk.LabelFrame(self, text="AV / S/N")
         self.av_frame.grid(row=5, column=0, columnspan=4, sticky="w", padx=10, pady=5)
 
         self.av_radio_installed = ttk.Radiobutton(
@@ -102,6 +104,10 @@ class AdditionalWindow(tk.Toplevel):
             value="Не встановлено", command=self.on_av_change, state="disabled"
         )
         self.av_radio_not_installed.grid(row=0, column=1, padx=5, pady=2, sticky="w")
+
+        ttk.Label(self.av_frame, text="S/N:").grid(row=0, column=2, sticky="e", padx=5)
+        self.sn_entry = ttk.Entry(self.av_frame, textvariable=self.sn_var, width=30, state="disabled")
+        self.sn_entry.grid(row=0, column=3, padx=5, pady=2, sticky="w")
 
         # Рядок 6: Пошта
         ttk.Label(self, text="Пошта:").grid(row=6, column=0, sticky="e", padx=5, pady=5)
@@ -128,35 +134,37 @@ class AdditionalWindow(tk.Toplevel):
             self.av_radio_not_installed.config(state="normal")
 
             av_value = self.av_var.get()
-            if av_value == "встановлено":
+            if av_value == "Встановлено":
                 self.email_entry.delete(0, tk.END)
                 self.email_entry.config(state="disabled")
-            elif av_value == "не встановлено":
+                self.sn_entry.delete(0, tk.END)
+                self.sn_entry.config(state="disabled")
+            elif av_value == "Не встановлено":
                 self.email_entry.config(state="normal")
+                self.sn_entry.config(state="normal")
             else:
                 self.email_entry.delete(0, tk.END)
                 self.email_entry.config(state="disabled")
+                self.sn_entry.delete(0, tk.END)
+                self.sn_entry.config(state="disabled")
         else:
             self.av_var.set("")
             self.av_radio_installed.config(state="disabled")
             self.av_radio_not_installed.config(state="disabled")
             self.email_entry.delete(0, tk.END)
             self.email_entry.config(state="disabled")
+            self.sn_entry.delete(0, tk.END)
+            self.sn_entry.config(state="disabled")
 
     def on_av_change(self):
-        if self.av_var.get() == "встановлено":
+        if self.av_var.get() == "Встановлено":
             self.email_entry.delete(0, tk.END)
             self.email_entry.config(state="disabled")
+            self.sn_entry.delete(0, tk.END)
+            self.sn_entry.config(state="disabled")
         else:
             self.email_entry.config(state="normal")
-
-    def save_data(self):
-        data = self.collect_data()
-        print("Збережені дані:", data)
-        self.destroy()
-
-    def cancel(self):
-        self.destroy()
+            self.sn_entry.config(state="normal")
 
     def collect_data(self):
         return {
@@ -167,6 +175,7 @@ class AdditionalWindow(tk.Toplevel):
             "Модель": self.model_entry.get(),
             "Тип МКП": self.type_var.get(),
             "AV": self.av_var.get(),
+            "S/N": self.sn_entry.get(),
             "Пошта": self.email_entry.get()
         }
 
@@ -189,3 +198,11 @@ class AdditionalWindow(tk.Toplevel):
             self.destroy()
         except Exception as e:
             messagebox.showerror("Помилка", f"Не вдалося зберегти дані:\n{e}")
+
+    def save_data(self):
+        data = self.collect_data()
+        print("Збережені дані:", data)
+        self.destroy()
+
+    def cancel(self):
+        self.destroy()
