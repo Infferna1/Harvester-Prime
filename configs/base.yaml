@@ -1,0 +1,6 @@
+paths:
+  # Directory containing raw DHCP CSV files
+  raw_dhcp: data/raw/dhcp
+  # Location for the normalized interim CSV output
+  interim_dhcp: data/interim/dhcp.csv
+
