@@ -3,3 +3,6 @@ data/**/*.csv
 
 # Дозволяємо приклади *.example.csv
 !data/**/*.example.csv
+
+__pycache__/
+*.pyc
