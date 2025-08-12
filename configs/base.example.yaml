@@ -1,0 +1,9 @@
+paths:
+  data: "data"
+  raw: "data/raw"
+  console: "data/raw/console"
+  logs: "data/raw/logs"
+  rds: "data/raw/rds"
+
+logging:
+  level: "INFO"
