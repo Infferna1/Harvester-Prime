@@ -1,0 +1,18 @@
+# Ігноруємо всі .env
+**/.env
+
+# Дозволяємо приклад
+!**/.env.example
+
+# Ігноруємо всі yaml у configs/
+configs/*.yml
+configs/*.yaml
+
+# Дозволяємо приклади *.example.yaml
+!configs/*.example.yaml
+
+# Ігноруємо всі CSV у data/ та підпапках
+data/**/*.csv
+
+# Дозволяємо приклади *.example.csv
+!data/**/*.example.csv
