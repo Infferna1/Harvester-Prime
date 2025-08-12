@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import csv
-from typing import Iterable, Dict, List
+from typing import Iterable, Dict, List, Set, Tuple
 
 # Columns we are interested in within DHCP log files
 DHCP_COLUMNS = [
@@ -52,12 +52,34 @@ def load_dhcp_logs(directory: Path) -> List[Dict[str, str]]:
 
 
 def write_dhcp_interim(path: Path, rows: Iterable[Dict[str, str]]) -> None:
-    """Write normalized DHCP rows to *path* in CSV format."""
+    """Write normalized DHCP rows to *path* in CSV format.
+
+    Existing records in the destination file are preserved and used to
+    filter out duplicates from *rows*. A row is considered duplicate if
+    all of its fields match an already stored row.
+    """
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     fieldnames = ["source", "ip", "mac", "hostname", "date"]
-    with open(path, "w", newline="", encoding="utf-8") as fh:
+
+    # Load existing records to avoid writing duplicates
+    existing: Set[Tuple[str, ...]] = set()
+    if path.exists():
+        with open(path, newline="", encoding="utf-8") as fh:
+            reader = csv.DictReader(fh)
+            for row in reader:
+                existing.add(tuple(row.get(f, "") for f in fieldnames))
+        mode = "a"
+    else:
+        mode = "w"
+
+    with open(path, mode, newline="", encoding="utf-8") as fh:
         writer = csv.DictWriter(fh, fieldnames=fieldnames)
-        writer.writeheader()
+        if mode == "w":
+            writer.writeheader()
         for row in rows:
+            record = tuple(row.get(f, "") for f in fieldnames)
+            if record in existing:
+                continue
             writer.writerow(row)
+            existing.add(record)
