@@ -16,7 +16,7 @@ DHCP_COLUMNS = [
 
 def _is_valid_csv(path: Path) -> bool:
     """Return True if *path* points to a CSV file we should process."""
-    return path.suffix == ".csv" and not path.name.endswith(".examples.csv")
+    return path.suffix == ".csv" and not path.name.endswith(".example.csv")
 
 
 def list_csv_files(directory: Path) -> List[Path]:
