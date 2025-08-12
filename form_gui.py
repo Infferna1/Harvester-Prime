@@ -52,9 +52,20 @@ class App(tk.Tk):
         self.bool_fields_config = load_types_from_json("bool_fields_config.json")
         self.bool_vars = {}
 
-        self.create_widgets()
+        # Для динамічних полів p_software (замість prohibited_software)
+        p_soft_conf = next(
+            (item for item in self.bool_fields_config if item.get("id") == "p_software"),
+            None
+        )
+        if p_soft_conf:
+            self.p_software_label = p_soft_conf["label"]
 
+        self.p_software_vars = []
+        self.p_software_frame = None
+
+        self.create_widgets()
         threading.Thread(target=self.load_system_info, daemon=True).start()
+
 
     def create_widgets(self):
         frame = ttk.Frame(self, padding=20)
@@ -104,8 +115,13 @@ class App(tk.Tk):
         ttk.Label(row4, text="Власник", width=15).pack(side=tk.LEFT)
         ttk.Entry(row4, textvariable=self.owner_var, width=30).pack(side=tk.LEFT)
 
+        # Кнопка "Додати МКП" під відділом і власником
+        add_mkp_frame = ttk.Frame(frame)
+        add_mkp_frame.pack(fill=tk.X, pady=(10, 20))
+        ttk.Button(add_mkp_frame, text="Додати МКП", command=self.test_button).pack(side=tk.LEFT, padx=5)
+
         # Логічні параметри
-        ttk.Label(frame, text="\nПараметри (Так / Ні):", font=("Segoe UI", 10, "bold")).pack(anchor="w", pady=(15, 5))
+        ttk.Label(frame, text="\nПараметри (Так / Ні):", font=("Segoe UI", 10, "bold")).pack(anchor="w", pady=(5, 5))
 
         for field in self.bool_fields_config:
             label = field["label"]
@@ -121,13 +137,61 @@ class App(tk.Tk):
             self.bool_vars[label] = var
 
             for i, option in enumerate(options):
-                ttk.Radiobutton(container, text=option, variable=var, value=option).grid(row=0, column=i + 1, padx=(10, 5))
+                rb = ttk.Radiobutton(container, text=option, variable=var, value=option,
+                                     command=lambda l=label: self.on_logic_option_changed(l))
+                rb.grid(row=0, column=i + 1, padx=(10, 5))
 
-        # Кнопки
-        btn_frame = ttk.Frame(frame)
-        btn_frame.pack(fill=tk.X, pady=20)
-        ttk.Button(btn_frame, text="Додати МКП", command=self.test_button).pack(side=tk.LEFT, padx=5)
-        ttk.Button(btn_frame, text="Зберегти дані", command=self.save_data).pack(side=tk.LEFT, padx=5)
+            # Якщо це "ПЗ", готуємо frame для додаткових полів, схований поки
+            if label == self.p_software_label:
+                self.p_software_frame = ttk.Frame(frame, padding=(40, 5))
+                self.p_software_frame.pack(anchor="w", fill=tk.X, pady=(0, 15))
+                self.p_software_frame.pack_forget()
+
+                # Кнопки додати / видалити ПЗ та контейнер для Entry
+                self.entries_container = ttk.Frame(self.p_software_frame)
+                self.entries_container.pack(anchor="w", fill=tk.X)
+
+                btns_frame = ttk.Frame(self.p_software_frame)
+                btns_frame.pack(anchor="w", pady=5)
+
+                ttk.Button(btns_frame, text="Додати поле ПЗ", command=self.add_p_software_entry).pack(side=tk.LEFT, padx=5)
+                ttk.Button(btns_frame, text="Видалити поле ПЗ", command=self.remove_p_software_entry).pack(side=tk.LEFT, padx=5)
+
+        # Кнопка Зберегти дані внизу
+        save_btn_frame = ttk.Frame(frame)
+        save_btn_frame.pack(fill=tk.X, pady=10)
+        ttk.Button(save_btn_frame, text="Зберегти дані", command=self.save_data).pack(side=tk.RIGHT, padx=5)
+
+    def on_logic_option_changed(self, label):
+        if label == self.p_software_label:
+            val = self.bool_vars[label].get()
+            if val == "Знайдено":
+                self.p_software_frame.pack(anchor="w", fill=tk.X, pady=(0, 15))
+                if not self.p_software_vars:
+                    self.add_p_software_entry()
+            else:
+                self.clear_p_software_entries()
+                self.p_software_frame.pack_forget()
+
+    def add_p_software_entry(self):
+        entry = ttk.Entry(self.entries_container, width=60)
+        entry.pack(anchor="w", pady=2)
+        self.p_software_vars.append(entry)
+
+    def remove_p_software_entry(self):
+        if self.p_software_vars:
+            entry = self.p_software_vars.pop()
+            entry.destroy()
+            # Якщо більше немає полів - переключаємо радіо на "Не знайдено"
+            if not self.p_software_vars:
+                self.bool_vars[self.p_software_label].set("Не знайдено")
+                self.p_software_frame.pack_forget()
+
+    def clear_p_software_entries(self):
+        for entry in self.p_software_vars:
+            entry.destroy()
+        self.p_software_vars.clear()
+        self.bool_vars[self.p_software_label].set("Не знайдено")
 
     def load_system_info(self):
         info = collect_system_info()
@@ -164,7 +228,13 @@ class App(tk.Tk):
         }
 
         for key, var in self.bool_vars.items():
+            # Додаємо всі bool поля, включно з "p_software"
             data[key] = var.get()
+
+        # Збираємо список ПЗ, якщо є
+        p_software_list = []
+        if self.bool_vars.get(self.p_software_label) and self.bool_vars[self.p_software_label].get() == "Знайдено":
+            p_software_list = [e.get().strip() for e in self.p_software_vars if e.get().strip()]
 
         filename = "collected_data.csv"
         file_exists = os.path.isfile(filename)
@@ -196,7 +266,22 @@ class App(tk.Tk):
 
                 writer.writerow(data)
 
-            messagebox.showinfo("Успіх", "Дані успішно збережено у collected_data.csv")
+            # Записуємо список ПЗ лише у другий файл
+            if p_software_list:
+                p_software_filename = "p_software.csv"
+                p_software_file_exists = os.path.isfile(p_software_filename)
+                col_name = f"{self.p_software_label}"
+                with open(p_software_filename, "a", encoding="utf-8", newline='') as pf:
+                    writer = csv.DictWriter(pf, fieldnames=["S/N", col_name])
+                    if not p_software_file_exists:
+                        writer.writeheader()
+                    writer.writerow({
+                        "S/N": data["S/N"],
+                        col_name: "; ".join(p_software_list)
+                    })
+
+            messagebox.showinfo("Успіх", "Дані успішно збережено у collected_data.csv" +
+                                (", та p_software.csv" if p_software_list else ""))
 
         except Exception as e:
             messagebox.showerror("Помилка", f"Не вдалося зберегти файл:\n{e}")
