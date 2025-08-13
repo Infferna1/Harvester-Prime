@@ -4,5 +4,10 @@ data/**/*.csv
 # Дозволяємо приклади *.example.csv
 !data/**/*.example.csv
 
+# Ігноруємо CSV у validation/, окрім прикладів
+validation/*.csv
+!validation/*.example.csv
+
 __pycache__/
 *.pyc
+
