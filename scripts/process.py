@@ -112,7 +112,7 @@ def main() -> None:
     normalized = normalize_dhcp_records(records)
     write_dhcp_interim(interim_file, normalized)
 
-    validation_dir = BASE_DIR / "validation"
+    validation_dir = BASE_DIR / "data" / "raw" / "validation"
     report_file = BASE_DIR / "data" / "result" / "report1.csv"
     run_validation(validation_dir, interim_file, report_file)
 
