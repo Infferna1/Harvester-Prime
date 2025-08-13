@@ -6,6 +6,7 @@ Utilities for processing DHCP log files.
 
 * Collect DHCP log entries from CSV files in a directory.
 * Normalize records into a consistent structure.
+* Track the first and last times each MAC address appears in the logs.
 * Write results to an interim CSV file while skipping duplicate rows.
 
 ## Input
@@ -15,6 +16,8 @@ Raw DHCP log CSV files. Locations are configurable via `configs/base.yaml` (defa
 ## Output
 
 A normalized CSV file containing unique DHCP records (default: `data/interim/dhcp.csv`).
+Each record includes the earliest (`firstDate`) and latest (`lastDate`) timestamps for
+when the MAC address was seen.
 
 ## Usage
 

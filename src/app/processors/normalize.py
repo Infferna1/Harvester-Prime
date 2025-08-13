@@ -37,17 +37,51 @@ def deduplicate_by_mac(records: Iterable[Dict[str, str]]) -> List[Dict[str, str]
 
 
 def normalize_dhcp_records(records: Iterable[Dict[str, str]]) -> List[Dict[str, str]]:
-    """Normalize raw DHCP log records for downstream processing."""
+    """Normalize raw DHCP log records for downstream processing.
+
+    The resulting dictionaries contain the following fields:
+
+    ``source``
+        Identifier of the log source.
+    ``ip``
+        Assigned IP address.
+    ``mac``
+        MAC address of the client device.
+    ``hostname``
+        Hostname extracted from the payload (or ``"unknown"``).
+    ``firstDate``
+        Earliest ``deviceTime`` for the MAC address across all records.
+    ``lastDate``
+        Latest ``deviceTime`` for the MAC address.
+    """
+
+    # ``records`` may be an iterator; convert to list so we can iterate twice
+    records = list(records)
+
+    # Determine the earliest timestamp for each MAC address
+    first_seen: Dict[str, str] = {}
+    for record in records:
+        mac = record.get("sourcMACAddress", "")
+        time_str = record.get("deviceTime", "0")
+        try:
+            ts = int(time_str)
+        except ValueError:
+            ts = 0
+        if mac not in first_seen or ts < int(first_seen.get(mac, ts)):
+            first_seen[mac] = time_str
+
     normalized: List[Dict[str, str]] = []
     for record in deduplicate_by_mac(records):
         payload = parse_payload(record.get("payloadAsUTF", ""))
+        mac = payload.get("mac", record.get("sourcMACAddress", ""))
         normalized.append(
             {
                 "source": record.get("logSourceIdentifier", ""),
                 "ip": payload.get("ip", ""),
-                "mac": payload.get("mac", record.get("sourcMACAddress", "")),
+                "mac": mac,
                 "hostname": payload.get("hostname", "unknown"),
-                "date": record.get("deviceTime", ""),
+                "firstDate": first_seen.get(mac, ""),
+                "lastDate": record.get("deviceTime", ""),
             }
         )
     return normalized
