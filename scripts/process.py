@@ -10,6 +10,7 @@ from __future__ import annotations
 from pathlib import Path
 import sys
 import csv
+from datetime import datetime
 
 import yaml
 
@@ -19,6 +20,22 @@ sys.path.append(str(BASE_DIR / "src"))
 
 from app.collectors.files import load_dhcp_logs, write_dhcp_interim
 from app.processors.normalize import normalize_dhcp_records
+
+
+def _format_timestamp(value: str) -> str:
+    """Return *value* converted to ``DD.MM.YYYY HH:MM`` format.
+
+    ``value`` is expected to be a Unix timestamp in seconds or milliseconds.
+    If it cannot be parsed, an empty string is returned.
+    """
+
+    try:
+        ts = int(value)
+    except ValueError:
+        return ""
+    if ts > 1_000_000_000_000:  # milliseconds
+        ts /= 1000
+    return datetime.fromtimestamp(ts).strftime("%d.%m.%Y %H:%M")
 
 
 def load_config() -> dict:
@@ -85,11 +102,16 @@ def run_validation(validation_dir: Path, dhcp_file: Path, report_file: Path) -> 
     for mac, dhcp_row in dhcp_records.items():
         if mac in matched_macs:
             continue
+        first_seen = _format_timestamp(dhcp_row.get("firstDate", ""))
+        last_seen = _format_timestamp(dhcp_row.get("lastDate", ""))
+        note = "Не надано для перевірки."
+        if first_seen or last_seen:
+            note += f" Перше підключення – {first_seen}, останнє підключення – {last_seen}."
         report_rows.append(
             {
                 "hostname": dhcp_row.get("hostname", ""),
                 "ipmac": f"{dhcp_row.get('ip', '')}\n{mac}",
-                "note": "Не надано на перевірку.",
+                "note": note,
             }
         )
 
