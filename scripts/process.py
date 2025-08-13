@@ -20,6 +20,15 @@ from app.collectors.files import load_dhcp_logs, write_dhcp_interim
 from app.processors.normalize import normalize_dhcp_records
 
 
+def run_validation(directory: Path) -> None:
+    """Run validation tasks on processed data.
+
+    This placeholder implementation simply ensures the destination
+    *directory* exists. Real validation logic can be plugged in here.
+    """
+    Path(directory).mkdir(parents=True, exist_ok=True)
+
+
 def load_config() -> dict:
     """Load configuration values from ``configs/base.yaml``."""
     config_path = BASE_DIR / "configs" / "base.yaml"
@@ -33,10 +42,12 @@ def main() -> None:
 
     raw_dir = BASE_DIR / paths.get("raw_dhcp", "data/raw/dhcp")
     interim_file = BASE_DIR / paths.get("interim_dhcp", "data/interim/dhcp.csv")
+    validation_dir = BASE_DIR / "data" / "validation"
 
     records = load_dhcp_logs(raw_dir)
     normalized = normalize_dhcp_records(records)
     write_dhcp_interim(interim_file, normalized)
+    run_validation(validation_dir)
 
 
 if __name__ == "__main__":
