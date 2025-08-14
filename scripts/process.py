@@ -18,7 +18,7 @@ import yaml
 BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.append(str(BASE_DIR / "src"))
 
-from app.collectors.files import load_dhcp_logs, write_dhcp_interim
+from app.collectors.files import load_dhcp_logs, write_dhcp_interim, list_csv_files
 from app.processors.normalize import normalize_dhcp_records
 
 
@@ -130,13 +130,22 @@ def main() -> None:
     raw_dir = BASE_DIR / paths.get("raw_dhcp", "data/raw/dhcp")
     interim_file = BASE_DIR / paths.get("interim_dhcp", "data/interim/dhcp.csv")
 
+    if not list_csv_files(raw_dir):
+        print(f"Відсутні файли DHCP у {raw_dir}. Обробку даних не запущено.")
+        return
+
     records = load_dhcp_logs(raw_dir)
     normalized = normalize_dhcp_records(records)
     write_dhcp_interim(interim_file, normalized)
 
     validation_dir = BASE_DIR / "data" / "raw" / "validation"
-    report_file = BASE_DIR / "data" / "result" / "report1.csv"
-    run_validation(validation_dir, interim_file, report_file)
+    if list_csv_files(validation_dir):
+        report_file = BASE_DIR / "data" / "result" / "report1.csv"
+        run_validation(validation_dir, interim_file, report_file)
+    else:
+        print(
+            f"Відсутні файли для валідації у {validation_dir}. Крок перевірки пропущено."
+        )
 
 
 if __name__ == "__main__":
