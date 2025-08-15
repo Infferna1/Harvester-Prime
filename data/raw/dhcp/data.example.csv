@@ -1,4 +1,4 @@
-"logSourceIdentifier","sourcMACAddress","payloadAsUTF","deviceTime"
+logSourceIdentifier,sourcMACAddress,payloadAsUTF,deviceTime
 "10.0.0.10","EE:3C:E7:DA:8E:B4","dhcp,info defconf assigned 192.168.1.60 for EE:3C:E7:DA:8E:B4","1755006684895"
 "10.0.0.10","86:6C:43:84:70:2F","dhcp,info defconf assigned 192.168.1.69 for 86:6C:43:84:70:2F Xiaomi-14T-Pro","1755006240482"
 "10.0.0.10","34:17:49:FA:EB:B2","dhcp,info defconf assigned 192.168.1.140 for 34:17:49:FA:EB:B2","1755006189287"
