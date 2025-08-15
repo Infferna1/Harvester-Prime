@@ -192,10 +192,12 @@ def run_arm_check(arm_dir: Path, dhcp_file: Path, report_file: Path) -> None:
                             }
                         )
                     else:
+                        ip = (row.get("IP", "") or "").strip()
+                        ipmac = f"{ip}\n{mac}" if ip else f"-\n{mac}"
                         unmatched_rows.append(
                             {
                                 "name": f"АРМ\n{hostname}",
-                                "ipmac": f"-\n{mac}",
+                                "ipmac": ipmac,
                                 "owner": owner,
                                 "nate": type_pc,
                             }
