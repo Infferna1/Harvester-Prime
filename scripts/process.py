@@ -56,7 +56,7 @@ def run_validation(validation_dir: Path, dhcp_file: Path, report_file: Path) -> 
     dhcp_file = Path(dhcp_file)
     report_file = Path(report_file)
 
-    # Load validation records (ip, mac)
+    # Load validation records (ip, mac) normalising MAC to uppercase
     validation_records = []
     if validation_dir.exists():
         for path in validation_dir.glob("*.csv"):
@@ -65,15 +65,17 @@ def run_validation(validation_dir: Path, dhcp_file: Path, report_file: Path) -> 
             with open(path, newline="", encoding="utf-8") as fh:
                 reader = csv.DictReader(fh)
                 for row in reader:
-                    validation_records.append({"ip": row.get("ip", ""), "mac": row.get("mac", "")})
+                    mac = (row.get("mac", "") or "").strip().upper().replace("-", ":")
+                    validation_records.append({"ip": row.get("ip", ""), "mac": mac})
 
-    # Load DHCP records indexed by MAC
+    # Load DHCP records indexed by normalised MAC
     dhcp_records = {}
     if dhcp_file.exists():
         with open(dhcp_file, newline="", encoding="utf-8") as fh:
             reader = csv.DictReader(fh)
             for row in reader:
-                dhcp_records[row.get("mac", "")] = row
+                mac = (row.get("mac", "") or "").strip().upper().replace("-", ":")
+                dhcp_records[mac] = row
 
     matched_macs = set()
     report_rows = []
@@ -221,6 +223,97 @@ def run_arm_check(arm_dir: Path, dhcp_file: Path, report_file: Path) -> None:
         writer.writerows(report_rows)
 
 
+def run_mkp_check(mkp_dir: Path, dhcp_file: Path, report_file: Path) -> None:
+    """Generate MKP report from *mkp_dir* against *dhcp_file*.
+
+    Rows are appended to *report_file* with columns ``name``, ``ipmac``,
+    ``owner`` and ``nate``. Existing entries are not duplicated.
+    """
+
+    mkp_dir = Path(mkp_dir)
+    dhcp_file = Path(dhcp_file)
+    report_file = Path(report_file)
+
+    if not dhcp_file.exists():
+        print(f"Відсутній файл DHCP {dhcp_file}. Крок перевірки МКП пропущено.")
+        return
+
+    # Load DHCP records indexed by normalised MAC
+    dhcp_records = {}
+    with open(dhcp_file, newline="", encoding="utf-8") as fh:
+        reader = csv.DictReader(fh)
+        for row in reader:
+            mac = (row.get("mac", "") or "").strip().upper().replace("-", ":")
+            dhcp_records[mac] = row
+
+    # Load existing MACs from the report to avoid duplicates
+    existing_macs = set()
+    if report_file.exists():
+        with open(report_file, newline="", encoding="utf-8") as fh:
+            reader = csv.DictReader(fh)
+            for row in reader:
+                ipmac = row.get("ipmac", "")
+                if not ipmac:
+                    continue
+                parts = ipmac.splitlines()
+                if parts:
+                    existing_macs.add(parts[-1].strip().upper().replace("-", ":"))
+
+    matched_rows = []
+    unmatched_rows = []
+
+    if mkp_dir.exists():
+        for path in list_csv_files(mkp_dir):
+            with open(path, newline="", encoding="utf-8") as fh:
+                reader = csv.DictReader(fh)
+                for row in reader:
+                    mac_raw = (row.get("Статичний MAC", "") or "").strip()
+                    if not MAC_RE.fullmatch(mac_raw):
+                        continue
+                    mac = mac_raw.upper().replace("-", ":")
+                    if mac in existing_macs:
+                        continue
+                    model = row.get("Модель", "")
+                    owner = row.get("Відповідальний", "")
+                    mkp_type = row.get("Тип МКП", "")
+                    dhcp_row = dhcp_records.get(mac)
+                    if dhcp_row:
+                        matched_rows.append(
+                            {
+                                "name": f"МКП\n{model}",
+                                "ipmac": f"{dhcp_row.get('ip', '')}\n{mac}",
+                                "owner": owner,
+                                "nate": mkp_type,
+                            }
+                        )
+                    else:
+                        unmatched_rows.append(
+                            {
+                                "name": f"МКП\n{model}",
+                                "ipmac": mac,
+                                "owner": owner,
+                                "nate": mkp_type,
+                            }
+                        )
+                    existing_macs.add(mac)
+    else:
+        print(f"Відсутні файли для перевірки у {mkp_dir}. Крок МКП пропущено.")
+
+    report_rows = matched_rows + unmatched_rows
+
+    if not report_rows:
+        return
+
+    report_file.parent.mkdir(parents=True, exist_ok=True)
+    fieldnames = ["name", "ipmac", "owner", "nate"]
+    mode = "a" if report_file.exists() else "w"
+    with open(report_file, mode, newline="", encoding="utf-8") as fh:
+        writer = csv.DictWriter(fh, fieldnames=fieldnames)
+        if mode == "w":
+            writer.writeheader()
+        writer.writerows(report_rows)
+
+
 def main() -> None:
     config = load_config()
     paths = config.get("paths", {})
@@ -248,6 +341,9 @@ def main() -> None:
     arm_dir = BASE_DIR / "data" / "raw" / "arm"
     report_file2 = BASE_DIR / "data" / "result" / "120report2.csv"
     run_arm_check(arm_dir, interim_file, report_file2)
+
+    mkp_dir = BASE_DIR / "data" / "raw" / "mkp"
+    run_mkp_check(mkp_dir, interim_file, report_file2)
 
 
 if __name__ == "__main__":
