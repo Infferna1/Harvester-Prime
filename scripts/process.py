@@ -127,10 +127,7 @@ def run_validation(validation_dir: Path, dhcp_file: Path, report_file: Path) -> 
         writer.writerows(report_rows)
     action = "Створено" if file_created else "Оновлено"
     print(f"{action} файл {report_file}")
-    print(
-        f"Додано {len(report_rows)} нових записів. "
-        f"0 записів вже існували та не були додані."
-    )
+    print(f"Додано {len(report_rows)} нових записів.")
 
 
 MAC_RE = re.compile(r"^[0-9A-Fa-f]{2}([-:][0-9A-Fa-f]{2}){5}$")
