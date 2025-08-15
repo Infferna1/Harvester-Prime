@@ -30,3 +30,16 @@ python scripts/process.py
 The script reads configuration, processes the raw logs and stores the normalized output.
 
 See `src/app/collectors/files.py` for implementation details.
+
+## Configuration
+
+Directory and file locations used by the scripts can be adjusted in
+`configs/base.yaml`. The following keys are available:
+
+- `raw_dhcp`: directory containing raw DHCP logs.
+- `interim_dhcp`: path to the normalized interim CSV file.
+- `raw_validation`: directory with validation CSV files.
+- `validation_report`: report produced from the validation step.
+- `raw_arm`: directory with ARM inventory CSV files.
+- `raw_mkp`: directory with MKP inventory CSV files.
+- `arm_mkp_report`: report produced from ARM and MKP checks.
