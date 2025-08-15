@@ -133,7 +133,7 @@ def run_arm_check(arm_dir: Path, dhcp_file: Path, report_file: Path) -> None:
     """Generate ARM report from *arm_dir* against *dhcp_file*.
 
     The report is written to *report_file* with columns ``name``, ``ipmac``,
-    ``owner`` and ``nate``. Rows are appended only if they are not already
+    ``owner`` and ``note``. Rows are appended only if they are not already
     present in the report.
     """
 
@@ -190,7 +190,7 @@ def run_arm_check(arm_dir: Path, dhcp_file: Path, report_file: Path) -> None:
                                 "name": f"АРМ\n{hostname}",
                                 "ipmac": f"{dhcp_row.get('ip', '')}\n{mac}",
                                 "owner": owner,
-                                "nate": type_pc,
+                                "note": type_pc,
                             }
                         )
                     else:
@@ -201,7 +201,7 @@ def run_arm_check(arm_dir: Path, dhcp_file: Path, report_file: Path) -> None:
                                 "name": f"АРМ\n{hostname}",
                                 "ipmac": ipmac,
                                 "owner": owner,
-                                "nate": type_pc,
+                                "note": type_pc,
                             }
                         )
                     existing_macs.add(mac)
@@ -214,7 +214,7 @@ def run_arm_check(arm_dir: Path, dhcp_file: Path, report_file: Path) -> None:
         return
 
     report_file.parent.mkdir(parents=True, exist_ok=True)
-    fieldnames = ["name", "ipmac", "owner", "nate"]
+    fieldnames = ["name", "ipmac", "owner", "note"]
     mode = "a" if report_file.exists() else "w"
     with open(report_file, mode, newline="", encoding="utf-8") as fh:
         writer = csv.DictWriter(fh, fieldnames=fieldnames)
@@ -227,7 +227,7 @@ def run_mkp_check(mkp_dir: Path, dhcp_file: Path, report_file: Path) -> None:
     """Generate MKP report from *mkp_dir* against *dhcp_file*.
 
     Rows are appended to *report_file* with columns ``name``, ``ipmac``,
-    ``owner`` and ``nate``. Existing entries are not duplicated.
+    ``owner`` and ``note``. Existing entries are not duplicated.
     """
 
     mkp_dir = Path(mkp_dir)
@@ -283,7 +283,7 @@ def run_mkp_check(mkp_dir: Path, dhcp_file: Path, report_file: Path) -> None:
                                 "name": f"МКП\n{model}",
                                 "ipmac": f"{dhcp_row.get('ip', '')}\n{mac}",
                                 "owner": owner,
-                                "nate": mkp_type,
+                                "note": mkp_type,
                             }
                         )
                     else:
@@ -292,7 +292,7 @@ def run_mkp_check(mkp_dir: Path, dhcp_file: Path, report_file: Path) -> None:
                                 "name": f"МКП\n{model}",
                                 "ipmac": mac,
                                 "owner": owner,
-                                "nate": mkp_type,
+                                "note": mkp_type,
                             }
                         )
                     existing_macs.add(mac)
@@ -305,7 +305,7 @@ def run_mkp_check(mkp_dir: Path, dhcp_file: Path, report_file: Path) -> None:
         return
 
     report_file.parent.mkdir(parents=True, exist_ok=True)
-    fieldnames = ["name", "ipmac", "owner", "nate"]
+    fieldnames = ["name", "ipmac", "owner", "note"]
     mode = "a" if report_file.exists() else "w"
     with open(report_file, mode, newline="", encoding="utf-8") as fh:
         writer = csv.DictWriter(fh, fieldnames=fieldnames)
@@ -329,20 +329,23 @@ def main() -> None:
     normalized = normalize_dhcp_records(records)
     write_dhcp_interim(interim_file, normalized)
 
-    validation_dir = BASE_DIR / "data" / "raw" / "validation"
+    validation_dir = BASE_DIR / paths.get("raw_validation", "data/raw/validation")
     if list_csv_files(validation_dir):
-        report_file = BASE_DIR / "data" / "result" / "report1.csv"
+        report_file = BASE_DIR / paths.get(
+            "validation_report", "data/result/report1.csv"
+        )
         run_validation(validation_dir, interim_file, report_file)
     else:
         print(
             f"Відсутні файли для валідації у {validation_dir}. Крок перевірки пропущено."
         )
 
-    arm_dir = BASE_DIR / "data" / "raw" / "arm"
-    report_file2 = BASE_DIR / "data" / "result" / "120report2.csv"
+    arm_dir = BASE_DIR / paths.get("raw_arm", "data/raw/arm")
+    mkp_dir = BASE_DIR / paths.get("raw_mkp", "data/raw/mkp")
+    report_file2 = BASE_DIR / paths.get(
+        "arm_mkp_report", "data/result/120report2.csv"
+    )
     run_arm_check(arm_dir, interim_file, report_file2)
-
-    mkp_dir = BASE_DIR / "data" / "raw" / "mkp"
     run_mkp_check(mkp_dir, interim_file, report_file2)
 
 
