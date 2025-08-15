@@ -64,7 +64,8 @@ def write_dhcp_interim(path: Path, rows: Iterable[Dict[str, str]]) -> None:
 
     # Load existing records to avoid writing duplicates
     existing: Set[Tuple[str, ...]] = set()
-    if path.exists():
+    file_created = not path.exists()
+    if not file_created:
         with open(path, newline="", encoding="utf-8") as fh:
             reader = csv.DictReader(fh)
             for row in reader:
@@ -73,6 +74,8 @@ def write_dhcp_interim(path: Path, rows: Iterable[Dict[str, str]]) -> None:
     else:
         mode = "w"
 
+    new_count = 0
+    dup_count = 0
     with open(path, mode, newline="", encoding="utf-8") as fh:
         writer = csv.DictWriter(fh, fieldnames=fieldnames)
         if mode == "w":
@@ -80,6 +83,17 @@ def write_dhcp_interim(path: Path, rows: Iterable[Dict[str, str]]) -> None:
         for row in rows:
             record = tuple(row.get(f, "") for f in fieldnames)
             if record in existing:
+                dup_count += 1
                 continue
             writer.writerow(row)
             existing.add(record)
+            new_count += 1
+
+    if file_created:
+        print(f"Створено файл {path}")
+    else:
+        print(f"Оновлено файл {path}")
+    print(
+        f"Додано {new_count} нових записів. "
+        f"{dup_count} записів вже існували та не були додані."
+    )

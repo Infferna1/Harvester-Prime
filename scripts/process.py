@@ -118,12 +118,19 @@ def run_validation(validation_dir: Path, dhcp_file: Path, report_file: Path) -> 
             }
         )
 
+    file_created = not report_file.exists()
     report_file.parent.mkdir(parents=True, exist_ok=True)
     fieldnames = ["hostname", "ipmac", "note"]
     with open(report_file, "w", newline="", encoding="utf-8") as fh:
         writer = csv.DictWriter(fh, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(report_rows)
+    action = "Створено" if file_created else "Оновлено"
+    print(f"{action} файл {report_file}")
+    print(
+        f"Додано {len(report_rows)} нових записів. "
+        f"0 записів вже існували та не були додані."
+    )
 
 
 MAC_RE = re.compile(r"^[0-9A-Fa-f]{2}([-:][0-9A-Fa-f]{2}){5}$")
@@ -154,8 +161,9 @@ def run_arm_check(arm_dir: Path, dhcp_file: Path, report_file: Path) -> None:
             dhcp_records[mac] = row
 
     # Load existing MACs from the report to avoid duplicates
+    file_created = not report_file.exists()
     existing_macs = set()
-    if report_file.exists():
+    if not file_created:
         with open(report_file, newline="", encoding="utf-8") as fh:
             reader = csv.DictReader(fh)
             for row in reader:
@@ -168,6 +176,7 @@ def run_arm_check(arm_dir: Path, dhcp_file: Path, report_file: Path) -> None:
 
     matched_rows = []
     unmatched_rows = []
+    duplicates = 0
 
     if arm_dir.exists():
         for path in list_csv_files(arm_dir):
@@ -179,6 +188,7 @@ def run_arm_check(arm_dir: Path, dhcp_file: Path, report_file: Path) -> None:
                         continue
                     mac = mac_raw.upper().replace("-", ":")
                     if mac in existing_macs:
+                        duplicates += 1
                         continue
                     hostname = row.get("Hostname", "")
                     owner = row.get("Власник", "")
@@ -211,6 +221,10 @@ def run_arm_check(arm_dir: Path, dhcp_file: Path, report_file: Path) -> None:
     report_rows = matched_rows + unmatched_rows
 
     if not report_rows:
+        print(
+            f"Нових записів не додано до {report_file}. "
+            f"{duplicates} записів вже існували."
+        )
         return
 
     report_file.parent.mkdir(parents=True, exist_ok=True)
@@ -221,6 +235,12 @@ def run_arm_check(arm_dir: Path, dhcp_file: Path, report_file: Path) -> None:
         if mode == "w":
             writer.writeheader()
         writer.writerows(report_rows)
+    action = "Створено" if file_created else "Оновлено"
+    print(f"{action} файл {report_file}")
+    print(
+        f"Додано {len(report_rows)} нових записів. "
+        f"{duplicates} записів вже існували та не були додані."
+    )
 
 
 def run_mkp_check(mkp_dir: Path, dhcp_file: Path, report_file: Path) -> None:
@@ -247,8 +267,9 @@ def run_mkp_check(mkp_dir: Path, dhcp_file: Path, report_file: Path) -> None:
             dhcp_records[mac] = row
 
     # Load existing MACs from the report to avoid duplicates
+    file_created = not report_file.exists()
     existing_macs = set()
-    if report_file.exists():
+    if not file_created:
         with open(report_file, newline="", encoding="utf-8") as fh:
             reader = csv.DictReader(fh)
             for row in reader:
@@ -261,6 +282,7 @@ def run_mkp_check(mkp_dir: Path, dhcp_file: Path, report_file: Path) -> None:
 
     matched_rows = []
     unmatched_rows = []
+    duplicates = 0
 
     if mkp_dir.exists():
         for path in list_csv_files(mkp_dir):
@@ -272,6 +294,7 @@ def run_mkp_check(mkp_dir: Path, dhcp_file: Path, report_file: Path) -> None:
                         continue
                     mac = mac_raw.upper().replace("-", ":")
                     if mac in existing_macs:
+                        duplicates += 1
                         continue
                     model = row.get("Модель", "")
                     owner = row.get("Відповідальний", "")
@@ -302,6 +325,10 @@ def run_mkp_check(mkp_dir: Path, dhcp_file: Path, report_file: Path) -> None:
     report_rows = matched_rows + unmatched_rows
 
     if not report_rows:
+        print(
+            f"Нових записів не додано до {report_file}. "
+            f"{duplicates} записів вже існували."
+        )
         return
 
     report_file.parent.mkdir(parents=True, exist_ok=True)
@@ -312,6 +339,12 @@ def run_mkp_check(mkp_dir: Path, dhcp_file: Path, report_file: Path) -> None:
         if mode == "w":
             writer.writeheader()
         writer.writerows(report_rows)
+    action = "Створено" if file_created else "Оновлено"
+    print(f"{action} файл {report_file}")
+    print(
+        f"Додано {len(report_rows)} нових записів. "
+        f"{duplicates} записів вже існували та не були додані."
+    )
 
 
 def main() -> None:
