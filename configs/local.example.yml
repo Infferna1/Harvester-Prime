@@ -1,0 +1,10 @@
+apps:
+  app1:
+    source: "офіс"
+    target: "Microsoft Office"
+  app2:
+    source: "хром"
+    target: "Google Chrome"
+  app3:
+    source: "ПЗ \"Кукумбер\""
+    target: "Antivirus \"Cucumber\""

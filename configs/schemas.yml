@@ -1,0 +1,34 @@
+arm:
+  mac: "MAC"
+  hostname: "Hostname"
+  owner: "Власник"
+  pc_type: "Тип ПК"
+  ip: "IP"
+mkp:
+  mac: "Статичний MAC"
+  model: "Модель"
+  owner: "Відповідальний"
+  mkp_type: "Тип МКП"
+  randmac: "Динамічний MAC"
+dhcp:
+  mac: "mac"
+  name: "name"
+  ip: "ip"
+  firstDate: "firstDate"
+  lastDate: "lastDate"
+  source: "source"
+validation:
+  ip: "ip"
+  mac: "mac"
+report:
+  ipmac: "ipmac"
+verified:
+  mac: "mac"
+pending:
+  type: "type"
+  source: "source"
+  ip: "ip"
+  mac: "mac"
+  name: "name"
+  firstDate: "firstDate"
+  lastDate: "lastDate"

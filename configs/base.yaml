@@ -1,0 +1,23 @@
+paths:
+  # Directory containing raw DHCP CSV files
+  raw_dhcp: data/raw/dhcp
+  # Location for the normalized interim CSV output
+  interim_dhcp: data/interim/dhcp.csv
+  # Directory containing validation CSV files
+  raw_validation: data/raw/validation
+  # Report produced from the validation step
+  validation_report: data/result/report1.csv
+  # Directory with ARM inventory CSV files
+  raw_arm: data/raw/arm
+  # Directory with MKP inventory CSV files
+  raw_mkp: data/raw/mkp
+  # Report produced from ARM and MKP checks
+  arm_mkp_report: data/result/120report2.csv
+
+devices:
+  router: "Маршрутизатор"
+  arm: "АРМ"
+  mkp: "МКП"
+  tv: "Телевізор"
+  printer: "Принтер"
+  unknown: "Невідомий пристрій"
