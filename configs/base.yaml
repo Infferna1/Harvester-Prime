@@ -14,3 +14,11 @@ paths:
   # Report produced from ARM and MKP checks
   arm_mkp_report: data/result/120report2.csv
 
+devices:
+  router: "Маршрутизатор"
+  arm: "АРМ"
+  mkp: "МКП"
+  tv: "Телевізор"
+  printer: "Принтер"
+  unknown: "Невідомий пристрій"
+
