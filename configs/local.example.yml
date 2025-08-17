@@ -8,6 +8,3 @@ apps:
   app3:
     source: "ПЗ \"Кукумбер\""
     target: "Antivirus \"Cucumber\""
-  app4:
-    source: "XY"
-    target: ""
