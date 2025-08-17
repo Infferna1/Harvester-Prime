@@ -133,19 +133,19 @@ def run_validation(validation_dir: Path, dhcp_file: Path, report_file: Path) -> 
 MAC_RE = re.compile(r"^[0-9A-Fa-f]{2}([-:][0-9A-Fa-f]{2}){5}$")
 
 
-def run_arm_interim(arm_dir: Path, dhcp_file: Path, checked_file: Path) -> None:
-    """Add ARM records matched with DHCP data to *checked_file*.
+def run_arm_interim(arm_dir: Path, dhcp_file: Path, verified_file: Path) -> None:
+    """Add ARM records matched with DHCP data to *verified_file*.
 
     Rows are written with columns ``type``, ``source``, ``name``, ``ip``,
     ``mac``, ``randmac``, ``owner``, ``note``, ``firstDate`` and ``lastDate``.
     Only records where the MAC address from ``arm_dir`` is present in
-    ``dhcp_file`` are included. Existing entries in *checked_file* are
+    ``dhcp_file`` are included. Existing entries in *verified_file* are
     preserved and duplicates are skipped.
     """
 
     arm_dir = Path(arm_dir)
     dhcp_file = Path(dhcp_file)
-    checked_file = Path(checked_file)
+    verified_file = Path(verified_file)
 
     if not dhcp_file.exists():
         print(
@@ -161,11 +161,11 @@ def run_arm_interim(arm_dir: Path, dhcp_file: Path, checked_file: Path) -> None:
             mac = (row.get("mac", "") or "").strip().upper().replace("-", ":")
             dhcp_records[mac] = row
 
-    # Load existing MACs from the checked file
-    file_created = not checked_file.exists()
+    # Load existing MACs from the verified file
+    file_created = not verified_file.exists()
     existing_macs = set()
     if not file_created:
-        with open(checked_file, newline="", encoding="utf-8") as fh:
+        with open(verified_file, newline="", encoding="utf-8") as fh:
             reader = csv.DictReader(fh)
             for row in reader:
                 mac = (row.get("mac", "") or "").strip().upper().replace("-", ":")
@@ -207,10 +207,10 @@ def run_arm_interim(arm_dir: Path, dhcp_file: Path, checked_file: Path) -> None:
         print(f"Відсутні файли для перевірки у {arm_dir}. Крок ARM interim пропущено.")
 
     if not rows_to_write:
-        print(f"Нових записів не додано до {checked_file}.")
+        print(f"Нових записів не додано до {verified_file}.")
         return
 
-    checked_file.parent.mkdir(parents=True, exist_ok=True)
+    verified_file.parent.mkdir(parents=True, exist_ok=True)
     fieldnames = [
         "type",
         "source",
@@ -223,19 +223,19 @@ def run_arm_interim(arm_dir: Path, dhcp_file: Path, checked_file: Path) -> None:
         "firstDate",
         "lastDate",
     ]
-    mode = "a" if checked_file.exists() else "w"
-    with open(checked_file, mode, newline="", encoding="utf-8") as fh:
+    mode = "a" if verified_file.exists() else "w"
+    with open(verified_file, mode, newline="", encoding="utf-8") as fh:
         writer = csv.DictWriter(fh, fieldnames=fieldnames)
         if mode == "w":
             writer.writeheader()
         writer.writerows(rows_to_write)
     action = "Створено" if file_created else "Оновлено"
-    print(f"{action} файл {checked_file}")
+    print(f"{action} файл {verified_file}")
     print(f"Додано {len(rows_to_write)} нових записів.")
 
 
-def run_mkp_interim(mkp_dir: Path, dhcp_file: Path, checked_file: Path) -> None:
-    """Add MKP records matched with DHCP data to *checked_file*.
+def run_mkp_interim(mkp_dir: Path, dhcp_file: Path, verified_file: Path) -> None:
+    """Add MKP records matched with DHCP data to *verified_file*.
 
     The behaviour mirrors :func:`run_arm_interim` but works with MKP inventory
     files and writes rows with ``type`` set to ``"mkp"``. The resulting rows
@@ -246,7 +246,7 @@ def run_mkp_interim(mkp_dir: Path, dhcp_file: Path, checked_file: Path) -> None:
 
     mkp_dir = Path(mkp_dir)
     dhcp_file = Path(dhcp_file)
-    checked_file = Path(checked_file)
+    verified_file = Path(verified_file)
 
     if not dhcp_file.exists():
         print(
@@ -262,11 +262,11 @@ def run_mkp_interim(mkp_dir: Path, dhcp_file: Path, checked_file: Path) -> None:
             mac = (row.get("mac", "") or "").strip().upper().replace("-", ":")
             dhcp_records[mac] = row
 
-    # Load existing MACs from the checked file
-    file_created = not checked_file.exists()
+    # Load existing MACs from the verified file
+    file_created = not verified_file.exists()
     existing_macs = set()
     if not file_created:
-        with open(checked_file, newline="", encoding="utf-8") as fh:
+        with open(verified_file, newline="", encoding="utf-8") as fh:
             reader = csv.DictReader(fh)
             for row in reader:
                 mac = (row.get("mac", "") or "").strip().upper().replace("-", ":")
@@ -313,10 +313,10 @@ def run_mkp_interim(mkp_dir: Path, dhcp_file: Path, checked_file: Path) -> None:
         print(f"Відсутні файли для перевірки у {mkp_dir}. Крок МКП interim пропущено.")
 
     if not rows_to_write:
-        print(f"Нових записів не додано до {checked_file}.")
+        print(f"Нових записів не додано до {verified_file}.")
         return
 
-    checked_file.parent.mkdir(parents=True, exist_ok=True)
+    verified_file.parent.mkdir(parents=True, exist_ok=True)
     fieldnames = [
         "type",
         "source",
@@ -329,14 +329,14 @@ def run_mkp_interim(mkp_dir: Path, dhcp_file: Path, checked_file: Path) -> None:
         "firstDate",
         "lastDate",
     ]
-    mode = "a" if checked_file.exists() else "w"
-    with open(checked_file, mode, newline="", encoding="utf-8") as fh:
+    mode = "a" if verified_file.exists() else "w"
+    with open(verified_file, mode, newline="", encoding="utf-8") as fh:
         writer = csv.DictWriter(fh, fieldnames=fieldnames)
         if mode == "w":
             writer.writeheader()
         writer.writerows(rows_to_write)
     action = "Створено" if file_created else "Оновлено"
-    print(f"{action} файл {checked_file}")
+    print(f"{action} файл {verified_file}")
     print(f"Додано {len(rows_to_write)} нових записів.")
 
 def run_arm_check(arm_dir: Path, dhcp_file: Path, report_file: Path) -> None:
@@ -578,9 +578,9 @@ def main() -> None:
 
     arm_dir = BASE_DIR / paths.get("raw_arm", "data/raw/arm")
     mkp_dir = BASE_DIR / paths.get("raw_mkp", "data/raw/mkp")
-    checked_file = BASE_DIR / "data/interim/checked.csv"
-    run_arm_interim(arm_dir, interim_file, checked_file)
-    run_mkp_interim(mkp_dir, interim_file, checked_file)
+    verified_file = BASE_DIR / "data/interim/verified.csv"
+    run_arm_interim(arm_dir, interim_file, verified_file)
+    run_mkp_interim(mkp_dir, interim_file, verified_file)
     report_file2 = BASE_DIR / paths.get(
         "arm_mkp_report", "data/result/120report2.csv"
     )
