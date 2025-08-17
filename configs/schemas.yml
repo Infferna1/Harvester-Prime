@@ -25,6 +25,7 @@ report:
 verified:
   mac: "mac"
 pending:
+  type: "type"
   source: "source"
   ip: "ip"
   mac: "mac"
