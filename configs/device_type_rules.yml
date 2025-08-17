@@ -14,7 +14,7 @@ rules:
   - type: router
     mode: regex
     patterns:
-      - "^[gisy][0-9]{9}$"   # router може називатись g240427017, i123456789, s987654321, y000000001
+      - "^[gisy][0-9]{9}$"
 
 default: unknown
 options:
