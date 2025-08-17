@@ -1,0 +1,22 @@
+rules:
+  - type: arm
+    mode: prefix
+    patterns:
+      - "DESKTOP-"
+      - "LAPTOP-"
+
+  - type: mkp
+    mode: contains
+    patterns:
+      - "iPhone"
+      - "Tab-A9-"
+
+  - type: router
+    mode: regex
+    patterns:
+      - "^[gisy][0-9]{9}$"   # router може називатись g240427017, i123456789, s987654321, y000000001
+
+default: unknown
+options:
+  case_insensitive: true
+  trim: true

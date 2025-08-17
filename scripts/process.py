@@ -26,6 +26,7 @@ from app.collectors.files import (
     write_csv,
 )
 from app.processors.normalize import normalize_dhcp_records
+from app.classifiers.device_type import DeviceTypeClassifier
 
 
 def load_schemas() -> dict:
@@ -577,22 +578,27 @@ def run_pending_check(
         for row in read_csv_mapped(verified_file, "verified", ["mac"])
     }
 
-    fieldnames = ["source", "ip", "mac", "hostname", "firstDate", "lastDate"]
+    classifier = DeviceTypeClassifier(BASE_DIR / "configs" / "device_type_rules.yml")
+    fieldnames = ["type", "source", "ip", "mac", "hostname", "firstDate", "lastDate"]
     append = pending_file.exists()
     existing = set()
     if append:
         for row in read_csv_mapped(pending_file, "pending", fieldnames):
             existing.add(tuple(row.get(f, "") for f in fieldnames))
 
+    dhcp_fields = fieldnames[1:]
     rows_to_write = []
-    for row in read_csv_mapped(dhcp_file, "dhcp", fieldnames):
+    for row in read_csv_mapped(dhcp_file, "dhcp", dhcp_fields):
         mac = (row.get("mac", "") or "").strip().upper()
         if mac in verified_macs:
             continue
-        record = tuple(row.get(f, "") for f in fieldnames)
+        row_type = classifier.classify(row.get("hostname", ""))
+        record = (row_type,) + tuple(row.get(f, "") for f in dhcp_fields)
         if record in existing:
             continue
-        rows_to_write.append({f: row.get(f, "") for f in fieldnames})
+        row_to_write = {f: row.get(f, "") for f in dhcp_fields}
+        row_to_write["type"] = row_type
+        rows_to_write.append(row_to_write)
         existing.add(record)
 
     file_created = write_csv(pending_file, fieldnames, rows_to_write, append=append)
