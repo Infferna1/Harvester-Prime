@@ -12,6 +12,7 @@ import sys
 from datetime import datetime
 import re
 
+import pandas as pd
 import yaml
 
 # Ensure the src directory is on the Python path
@@ -45,6 +46,18 @@ def load_schemas() -> dict:
 SCHEMAS = load_schemas()
 
 
+def rename_hostname_column(path: Path) -> None:
+    """Rename ``hostname`` column to ``name`` in *path* if present."""
+
+    path = Path(path)
+    if not path.exists():
+        return
+    df = pd.read_csv(path, dtype=str)
+    if "hostname" in df.columns and "name" not in df.columns:
+        df = df.rename(columns={"hostname": "name"})
+        df.to_csv(path, index=False)
+
+
 def read_csv_mapped(path: Path, schema_key: str, columns: list[str]) -> list[dict[str, str]]:
     """Read *columns* from *path* using a schema definition.
 
@@ -63,6 +76,8 @@ def read_csv_mapped(path: Path, schema_key: str, columns: list[str]) -> list[dic
         Rows with keys renamed to canonical column names.
     """
 
+    if schema_key in {"dhcp", "pending"}:
+        rename_hostname_column(path)
     mapping = SCHEMAS.get(schema_key, {})
     actual_columns = [mapping.get(col, col) for col in columns]
     rows = read_csv(path, columns=actual_columns)
@@ -128,7 +143,7 @@ def run_validation(validation_dir: Path, dhcp_file: Path, report_file: Path) -> 
     """Validate MAC addresses from *validation_dir* against *dhcp_file*.
 
     The resulting report is written to *report_file* with columns
-    ``hostname``, ``ipmac`` and ``note``.
+    ``name``, ``ipmac`` and ``note``.
     """
     validation_dir = Path(validation_dir)
     dhcp_file = Path(dhcp_file)
@@ -146,7 +161,7 @@ def run_validation(validation_dir: Path, dhcp_file: Path, report_file: Path) -> 
     dhcp_records = {}
     if dhcp_file.exists():
         for row in read_csv_mapped(
-            dhcp_file, "dhcp", ["mac", "hostname", "ip", "firstDate", "lastDate"]
+            dhcp_file, "dhcp", ["mac", "name", "ip", "firstDate", "lastDate"]
         ):
             mac = (row.get("mac", "") or "").strip().upper().replace("-", ":")
             dhcp_records[mac] = row
@@ -161,7 +176,7 @@ def run_validation(validation_dir: Path, dhcp_file: Path, report_file: Path) -> 
         if dhcp_row:
             report_rows.append(
                 {
-                    "hostname": dhcp_row.get("hostname", ""),
+                    "name": dhcp_row.get("name", ""),
                     "ipmac": f"{dhcp_row.get('ip', '')}\n{mac}",
                     "note": "Надано на перевірку.",
                 }
@@ -170,7 +185,7 @@ def run_validation(validation_dir: Path, dhcp_file: Path, report_file: Path) -> 
         else:
             report_rows.append(
                 {
-                    "hostname": "unknown",
+                    "name": "unknown",
                     "ipmac": f"{ip}\n{mac}",
                     "note": "Пристрій відсутній на локації.",
                 }
@@ -186,13 +201,13 @@ def run_validation(validation_dir: Path, dhcp_file: Path, report_file: Path) -> 
             note += f" Перше підключення – {first_seen}, останнє підключення – {last_seen}."
         report_rows.append(
             {
-                "hostname": dhcp_row.get("hostname", ""),
+                "name": dhcp_row.get("name", ""),
                 "ipmac": f"{dhcp_row.get('ip', '')}\n{mac}",
                 "note": note,
             }
         )
 
-    fieldnames = ["hostname", "ipmac", "note"]
+    fieldnames = ["name", "ipmac", "note"]
     file_created = write_csv(report_file, fieldnames, report_rows)
     action = "Створено" if file_created else "Оновлено"
     print(f"{action} файл {report_file}")
@@ -225,7 +240,7 @@ def run_arm_interim(arm_dir: Path, dhcp_file: Path, verified_file: Path) -> None
     # Load DHCP records indexed by normalised MAC
     dhcp_records = {}
     for row in read_csv_mapped(
-        dhcp_file, "dhcp", ["mac", "source", "ip", "hostname", "firstDate", "lastDate"]
+        dhcp_file, "dhcp", ["mac", "source", "ip", "name", "firstDate", "lastDate"]
     ):
         mac = (row.get("mac", "") or "").strip().upper().replace("-", ":")
         dhcp_records[mac] = row
@@ -317,7 +332,7 @@ def run_mkp_interim(mkp_dir: Path, dhcp_file: Path, verified_file: Path) -> None
     # Load DHCP records indexed by normalised MAC
     dhcp_records = {}
     for row in read_csv_mapped(
-        dhcp_file, "dhcp", ["mac", "source", "ip", "hostname", "firstDate", "lastDate"]
+        dhcp_file, "dhcp", ["mac", "source", "ip", "name", "firstDate", "lastDate"]
     ):
         mac = (row.get("mac", "") or "").strip().upper().replace("-", ":")
         dhcp_records[mac] = row
@@ -608,7 +623,7 @@ def run_pending_check(
     }
 
     classifier = DeviceTypeClassifier(BASE_DIR / "configs" / "device_type_rules.yml")
-    fieldnames = ["type", "source", "ip", "mac", "hostname", "firstDate", "lastDate"]
+    fieldnames = ["type", "source", "ip", "mac", "name", "firstDate", "lastDate"]
     append = pending_file.exists()
     existing = set()
     if append:
@@ -621,7 +636,7 @@ def run_pending_check(
         mac = (row.get("mac", "") or "").strip().upper()
         if mac in verified_macs:
             continue
-        row_type = classifier.classify(row.get("hostname", ""))
+        row_type = classifier.classify(row.get("name", ""))
         record = (row_type,) + tuple(row.get(f, "") for f in dhcp_fields)
         if record in existing:
             continue

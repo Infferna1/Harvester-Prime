@@ -12,7 +12,7 @@ mkp:
   randmac: "Динамічний MAC"
 dhcp:
   mac: "mac"
-  hostname: "hostname"
+  name: "name"
   ip: "ip"
   firstDate: "firstDate"
   lastDate: "lastDate"
@@ -29,6 +29,6 @@ pending:
   source: "source"
   ip: "ip"
   mac: "mac"
-  hostname: "hostname"
+  name: "name"
   firstDate: "firstDate"
   lastDate: "lastDate"
