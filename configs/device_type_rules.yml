@@ -3,18 +3,49 @@ rules:
     mode: prefix
     patterns:
       - "DESKTOP-"
+      - "DESKTOP_"
       - "LAPTOP-"
+      - "LAPTOP_"
+      - "WIN-"
+      - "WIN_"
 
-  - type: mkp
+  - type: arm
     mode: contains
     patterns:
+      - "TUF-Gaming"
+
+  - type: mkp
+    mode: prefix
+    patterns:
+      - "A51-"
+      - "Galaxy-"
       - "iPhone"
-      - "Tab-A9-"
+      - "M52-"
+      - "OnePlus-"
+      - "OPPO-"
+      - "Pixel-"
+      - "Realme-"
+      - "Redmi-"
+      - "S21-"
+      - "S22-"
+      - "S23-"
+      - "S24-"
+      - "SM73GA5G"
+      - "Tab-"
+      - "Xiaomi-"
 
   - type: router
     mode: regex
     patterns:
       - "^[gisy][0-9]{9}$"
+
+  - type: router
+    mode: contains
+    patterns:
+      - "ArcherAX72"
+      - "Archer_C6"
+      - "ArcherA64"
+      - "Archer_C20"
 
 default: unknown
 options:
