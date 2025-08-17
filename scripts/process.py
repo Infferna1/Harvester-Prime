@@ -95,6 +95,35 @@ def load_config() -> dict:
         return yaml.safe_load(fh) or {}
 
 
+def _load_note_mapping() -> dict[str, str]:
+    """Load note replacements from ``configs/local.yml`` if present."""
+
+    config_path = BASE_DIR / "configs" / "local.yml"
+    try:
+        with open(config_path, encoding="utf-8") as fh:
+            config = yaml.safe_load(fh) or {}
+    except FileNotFoundError:
+        return {}
+
+    mapping: dict[str, str] = {}
+    for app in (config.get("apps") or {}).values():
+        source = (app.get("source") or "").strip()
+        target = app.get("target")
+        if source and target:
+            mapping[source.lower()] = target
+    return mapping
+
+
+NOTE_MAPPING = _load_note_mapping()
+
+
+def normalize_note(note: str) -> str:
+    """Return note value replaced according to NOTE_MAPPING."""
+
+    key = (note or "").strip().lower()
+    return NOTE_MAPPING.get(key, note)
+
+
 def run_validation(validation_dir: Path, dhcp_file: Path, report_file: Path) -> None:
     """Validate MAC addresses from *validation_dir* against *dhcp_file*.
 
@@ -234,7 +263,7 @@ def run_arm_interim(arm_dir: Path, dhcp_file: Path, verified_file: Path) -> None
                         "mac": mac,
                         "randmac": "",
                         "owner": row.get("owner", ""),
-                        "note": row.get("pc_type", ""),
+                        "note": normalize_note(row.get("pc_type", "")),
                         "firstDate": dhcp_row.get("firstDate", ""),
                         "lastDate": dhcp_row.get("lastDate", ""),
                     }
@@ -333,7 +362,7 @@ def run_mkp_interim(mkp_dir: Path, dhcp_file: Path, verified_file: Path) -> None
                         "mac": mac,
                         "randmac": randmac,
                         "owner": row.get("owner", ""),
-                        "note": row.get("mkp_type", ""),
+                        "note": normalize_note(row.get("mkp_type", "")),
                         "firstDate": dhcp_row.get("firstDate", ""),
                         "lastDate": dhcp_row.get("lastDate", ""),
                     }
