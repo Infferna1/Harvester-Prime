@@ -136,11 +136,11 @@ MAC_RE = re.compile(r"^[0-9A-Fa-f]{2}([-:][0-9A-Fa-f]{2}){5}$")
 def run_arm_interim(arm_dir: Path, dhcp_file: Path, checked_file: Path) -> None:
     """Add ARM records matched with DHCP data to *checked_file*.
 
-    Rows are written with columns ``type``, ``name``, ``ip``, ``mac``,
-    ``randmac``, ``owner``, ``note``, ``firstDate`` and ``lastDate``. Only
-    records where the MAC address from ``arm_dir`` is present in ``dhcp_file``
-    are included. Existing entries in *checked_file* are preserved and
-    duplicates are skipped.
+    Rows are written with columns ``type``, ``source``, ``name``, ``ip``,
+    ``mac``, ``randmac``, ``owner``, ``note``, ``firstDate`` and ``lastDate``.
+    Only records where the MAC address from ``arm_dir`` is present in
+    ``dhcp_file`` are included. Existing entries in *checked_file* are
+    preserved and duplicates are skipped.
     """
 
     arm_dir = Path(arm_dir)
@@ -191,6 +191,7 @@ def run_arm_interim(arm_dir: Path, dhcp_file: Path, checked_file: Path) -> None:
                     rows_to_write.append(
                         {
                             "type": "arm",
+                            "source": dhcp_row.get("source", ""),
                             "name": row.get("Hostname", ""),
                             "ip": dhcp_row.get("ip", ""),
                             "mac": mac,
@@ -212,6 +213,7 @@ def run_arm_interim(arm_dir: Path, dhcp_file: Path, checked_file: Path) -> None:
     checked_file.parent.mkdir(parents=True, exist_ok=True)
     fieldnames = [
         "type",
+        "source",
         "name",
         "ip",
         "mac",
@@ -236,9 +238,10 @@ def run_mkp_interim(mkp_dir: Path, dhcp_file: Path, checked_file: Path) -> None:
     """Add MKP records matched with DHCP data to *checked_file*.
 
     The behaviour mirrors :func:`run_arm_interim` but works with MKP inventory
-    files and writes rows with ``type`` set to ``"mkp"``. An additional
-    ``randmac`` column is populated from the "Динамічний MAC" field when it
-    contains a valid MAC address; otherwise the column is left empty.
+    files and writes rows with ``type`` set to ``"mkp"``. The resulting rows
+    also include the ``source`` column from DHCP data. An additional ``randmac``
+    column is populated from the "Динамічний MAC" field when it contains a
+    valid MAC address; otherwise the column is left empty.
     """
 
     mkp_dir = Path(mkp_dir)
@@ -294,6 +297,7 @@ def run_mkp_interim(mkp_dir: Path, dhcp_file: Path, checked_file: Path) -> None:
                     rows_to_write.append(
                         {
                             "type": "mkp",
+                            "source": dhcp_row.get("source", ""),
                             "name": row.get("Модель", ""),
                             "ip": dhcp_row.get("ip", ""),
                             "mac": mac,
@@ -315,6 +319,7 @@ def run_mkp_interim(mkp_dir: Path, dhcp_file: Path, checked_file: Path) -> None:
     checked_file.parent.mkdir(parents=True, exist_ok=True)
     fieldnames = [
         "type",
+        "source",
         "name",
         "ip",
         "mac",
