@@ -5,6 +5,7 @@ data/**/*.csv
 
 # Дозволяємо приклади *.example.csv
 !data/**/*.example.csv
+!data/result/report1.csv
 
 __pycache__/
 *.pyc
