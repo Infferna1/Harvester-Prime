@@ -550,6 +550,70 @@ def run_mkp_check(mkp_dir: Path, dhcp_file: Path, report_file: Path) -> None:
     )
 
 
+def run_pending_check(
+    dhcp_file: Path, verified_file: Path, pending_file: Path
+) -> None:
+    """Write DHCP records absent from ``verified_file`` to ``pending_file``."""
+
+    dhcp_file = Path(dhcp_file)
+    verified_file = Path(verified_file)
+    pending_file = Path(pending_file)
+
+    if not dhcp_file.exists() or not verified_file.exists():
+        missing = []
+        if not dhcp_file.exists():
+            missing.append(str(dhcp_file))
+        if not verified_file.exists():
+            missing.append(str(verified_file))
+        print(
+            f"Відсутній файл або файли: {', '.join(missing)}. "
+            "Крок перевірки пропущено."
+        )
+        return
+
+    with open(verified_file, newline="", encoding="utf-8") as fh:
+        reader = csv.DictReader(fh)
+        verified_macs = {
+            (row.get("mac", "") or "").strip().upper() for row in reader
+        }
+
+    pending_file.parent.mkdir(parents=True, exist_ok=True)
+    fieldnames = ["source", "ip", "mac", "hostname", "firstDate", "lastDate"]
+    file_created = not pending_file.exists()
+    existing = set()
+    if not file_created:
+        with open(pending_file, newline="", encoding="utf-8") as fh:
+            reader = csv.DictReader(fh)
+            for row in reader:
+                existing.add(tuple(row.get(f, "") for f in fieldnames))
+        mode = "a"
+    else:
+        mode = "w"
+
+    added = 0
+    with open(dhcp_file, newline="", encoding="utf-8") as df, open(
+        pending_file, mode, newline="", encoding="utf-8"
+    ) as pf:
+        d_reader = csv.DictReader(df)
+        p_writer = csv.DictWriter(pf, fieldnames=fieldnames)
+        if mode == "w":
+            p_writer.writeheader()
+        for row in d_reader:
+            mac = (row.get("mac", "") or "").strip().upper()
+            if mac in verified_macs:
+                continue
+            record = tuple(row.get(f, "") for f in fieldnames)
+            if record in existing:
+                continue
+            p_writer.writerow({f: row.get(f, "") for f in fieldnames})
+            existing.add(record)
+            added += 1
+
+    action = "Створено" if file_created else "Оновлено"
+    print(f"{action} файл {pending_file}")
+    print(f"Додано {added} нових записів.")
+
+
 def main() -> None:
     config = load_config()
     paths = config.get("paths", {})
@@ -586,6 +650,8 @@ def main() -> None:
     )
     run_arm_check(arm_dir, interim_file, report_file2)
     run_mkp_check(mkp_dir, interim_file, report_file2)
+    pending_file = BASE_DIR / "data/interim/рending.csv"
+    run_pending_check(interim_file, verified_file, pending_file)
 
 
 if __name__ == "__main__":
