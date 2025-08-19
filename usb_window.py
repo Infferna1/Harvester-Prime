@@ -1,10 +1,12 @@
+import sys
 import tkinter as tk
-from tkinter import ttk, filedialog, messagebox
 import csv
 import os
-from usb_filter_window import USBFilterWindow
-from datetime import datetime, timedelta
 import json
+from tkinter import ttk, filedialog, messagebox
+from datetime import datetime, timedelta
+from usb_filter_window import USBFilterWindow
+from config_normalizer import resource_path
 
 
 class USBWindow(tk.Toplevel):
@@ -85,12 +87,13 @@ class USBWindow(tk.Toplevel):
 
         # Таблиця
         try:
-            with open("Data/ConfigData/UsbData/usb_columns_config.json", "r", encoding="utf-8") as f:
-                cols = json.load(
-                    f)
-            with open("Data/ConfigData/UsbData/usb_rows_types.json", "r", encoding="utf-8") as f:
+            with open(resource_path("Data/ConfigData/UsbData/usb_columns_config.json"), "r", encoding="utf-8") as f:
+                cols = json.load(f)
+
+            with open(resource_path("Data/ConfigData/UsbData/usb_rows_types.json"), "r", encoding="utf-8") as f:
                 row_definitions = json.load(f)
                 rows = list(row_definitions.keys())  # ключі — назви рядків
+
         except Exception as e:
             messagebox.showerror("Помилка", f"Не вдалося завантажити конфігурацію таблиці: {e}")
             row_definitions = {}
@@ -270,11 +273,13 @@ class USBWindow(tk.Toplevel):
                 print(f"Помилка при зчитуванні файлу {file_path}: {e}")
         return data
 
-
     def load_keys(self):
-        import json
-        with open("Data/ConfigData/UsbData/usb_pc_info.json", "r", encoding="utf-8") as f:
-            return json.load(f)
+        try:
+            with open(resource_path("Data/ConfigData/UsbData/usb_pc_info.json"), "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception as e:
+            messagebox.showerror("Помилка", f"Не вдалося зчитати usb_pc_info.json: {e}")
+            return {}
 
     def calculate(self):
         print("Початок збору інформації з теки USB...")
@@ -285,12 +290,14 @@ class USBWindow(tk.Toplevel):
 
         # Завантажуємо device_types з usb_types.json для фільтрації csv-файлів
         try:
-            with open("Data/ConfigData/UsbData/usb_types.json", "r", encoding="utf-8") as f:
+            with open(resource_path("Data/ConfigData/UsbData/usb_types.json"), "r", encoding="utf-8") as f:
                 usb_filter_config = json.load(f)
+
             device_types = set([t.strip().lower() for t in usb_filter_config.get("device_types", [])])
             print(f"Дозволені типи пристроїв з usb_types.json (після обробки): {device_types}")
+
         except Exception as e:
-            messagebox.showerror("Помилка", f"Не вдалося зчитати usb_types.json: {e}")
+            messagebox.showerror("Помилка", f"Не вдалося зчитати usb_types.json:\n\n{e}")
             return
 
         # Завантажуємо конфігурацію для підрахунків і таблиць
@@ -384,7 +391,7 @@ class USBWindow(tk.Toplevel):
         print("allowed_types_counts перед викликом filter_and_count_by_date:", device_types)
 
         # Фільтруємо за датою та записуємо результат
-        self.filter_and_count_by_date(output_path="Data/usb_pc_thing1.csv",
+        self.filter_and_count_by_date(output_path="result/usb_pc_result.csv",
                                       usb_rows_types=usb_rows_types,
                                       type_map=type_map,
                                       cols=cols,
@@ -393,25 +400,28 @@ class USBWindow(tk.Toplevel):
 
     def load_g_mapping(self):
         serial_to_g = {}
-        if self.usb_file_path and os.path.exists(self.usb_file_path):
-            try:
-                for encoding in ("utf-8", "cp1251"):
-                    try:
-                        with open(self.usb_file_path, "r", encoding=encoding) as f:
-                            reader = csv.reader(f)
-                            for row in reader:
-                                if len(row) >= 2:
-                                    serial = row[0].strip()
-                                    g = row[1].strip()
-                                    serial_to_g[serial] = g
-                        print(f"Інформація успішно прочитана з {self.usb_file_path}")
-                        break
-                    except UnicodeDecodeError:
-                        continue
-            except Exception as e:
-                print(f"Помилка при читанні {self.usb_file_path}: {e}")
-        else:
-            print("Файл переліку не знайдено. Неможливо опрацювати перелік.")
+
+        if self.usb_file_path:
+            file_path = resource_path(self.usb_file_path)
+            if os.path.exists(file_path):
+                try:
+                    for encoding in ("utf-8", "cp1251"):
+                        try:
+                            with open(file_path, "r", encoding=encoding) as f:
+                                reader = csv.reader(f)
+                                for row in reader:
+                                    if len(row) >= 2:
+                                        serial = row[0].strip()
+                                        g = row[1].strip()
+                                        serial_to_g[serial] = g
+                            print(f"Інформація успішно прочитана з {file_path}")
+                            break
+                        except UnicodeDecodeError:
+                            continue
+                except Exception as e:
+                    print(f"Помилка при читанні {file_path}: {e}")
+            else:
+                print("Файл переліку не знайдено. Неможливо опрацювати перелік.")
         return serial_to_g
 
     def save_final_csv(self, results, sn_to_g):
@@ -444,13 +454,14 @@ class USBWindow(tk.Toplevel):
         except Exception as e:
             messagebox.showerror("Помилка запису", f"Не вдалося записати файл: {e}")
 
-
     def load_config_and_init_counts(self):
         # Завантаження типів з usb_types.json
         try:
-            with open("Data/ConfigData/UsbData/usb_types.json", "r", encoding="utf-8") as f:
+            with open(resource_path("Data/ConfigData/UsbData/usb_types.json"), "r", encoding="utf-8") as f:
                 usb_filter_config = json.load(f)
-                allowed_device_types = set([t.strip().lower() for t in usb_filter_config.get("device_types", [])])
+                allowed_device_types = {
+                    t.strip().lower() for t in usb_filter_config.get("device_types", [])
+                }
                 print("allowed_device_types із usb_types.json:", allowed_device_types)
         except Exception as e:
             print(f"Не вдалося завантажити usb_types.json: {e}")
@@ -458,7 +469,7 @@ class USBWindow(tk.Toplevel):
 
         # Завантаження rows types з usb_rows_types.json
         try:
-            with open("Data/ConfigData/UsbData/usb_rows_types.json", "r", encoding="utf-8") as f:
+            with open(resource_path("Data/ConfigData/UsbData/usb_rows_types.json"), "r", encoding="utf-8") as f:
                 usb_rows_types = json.load(f)
                 rows = list(usb_rows_types.keys())
         except Exception as e:
@@ -467,17 +478,19 @@ class USBWindow(tk.Toplevel):
 
         # Завантаження columns з usb_columns_config.json
         try:
-            with open("Data/ConfigData/UsbData/usb_columns_config.json", "r", encoding="utf-8") as f:
+            with open(resource_path("Data/ConfigData/UsbData/usb_columns_config.json"), "r", encoding="utf-8") as f:
                 usb_columns_config = json.load(f)
                 type_map = usb_columns_config.get("sLevel", {})
-                cols = usb_columns_config # Idk what to do with this :C
-#TODO: Figure out what this ^^^^^ code do ASAP >:(
+                cols = usb_columns_config  # Весь словник
         except Exception as e:
             print(f"Не вдалося завантажити usb_columns_config.json: {e}")
             return None, None, None, None, None, None
 
         # Ініціалізація counts на основі rows і allowed_device_types
-        counts = {row_type: {dev_type: 0 for dev_type in allowed_device_types} for row_type in usb_rows_types.keys()}
+        counts = {
+            row_type: {dev_type: 0 for dev_type in allowed_device_types}
+            for row_type in usb_rows_types.keys()
+        }
 
         return counts, allowed_device_types, usb_rows_types, cols, rows, type_map
 
@@ -566,10 +579,10 @@ class USBWindow(tk.Toplevel):
         self.entry_vars[3].set(str(total_reg))
         self.entry_vars[4].set(str(percent_reg))
 
-
     def load_texts(self, path, required_keys=None):
         try:
-            with open(path, "r", encoding="utf-8") as file:
+            full_path = resource_path(path)  # будуємо абсолютний шлях
+            with open(full_path, "r", encoding="utf-8") as file:
                 data = json.load(file)
 
                 if required_keys:
@@ -579,16 +592,24 @@ class USBWindow(tk.Toplevel):
 
                 return data
         except Exception as e:
-            messagebox.showerror("Помилка", f"Не вдалося завантажити файл з текстами:\n{path}\n\n{e}")
+            messagebox.showerror(
+                "Помилка",
+                f"Не вдалося завантажити файл з текстами:\n{path}\n\n{e}"
+            )
             return None
-
 
     def load_simple_texts(self, path):
         try:
-            with open(path, "r", encoding="utf-8") as file:
+            # Підлаштовуємо шлях під exe або звичайний запуск
+            abs_path = resource_path(path)
+
+            with open(abs_path, "r", encoding="utf-8") as file:
                 return json.load(file)
         except Exception as e:
-            messagebox.showerror("Помилка", f"Не вдалося завантажити файл з текстами:\n{path}\n\n{e}")
+            messagebox.showerror(
+                "Помилка",
+                f"Не вдалося завантажити файл з текстами:\n{path}\n\n{e}"
+            )
             return None
 
 

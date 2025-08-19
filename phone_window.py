@@ -1,8 +1,11 @@
 import csv
 import os
 import json
+import sys
 import tkinter as tk
 from tkinter import ttk, messagebox
+from config_normalizer import resource_path
+
 
 
 class PhoneWindow(tk.Toplevel):
@@ -12,8 +15,9 @@ class PhoneWindow(tk.Toplevel):
         self.parent = parent
 
         # Завантаження типів із JSON
+        json_path = resource_path("Data/ConfigData/phone_types.json")
         try:
-            with open("Data/ConfigData/phone_types.json", "r", encoding="utf-8") as f:
+            with open(json_path, "r", encoding="utf-8") as f:
                 self.types_config = json.load(f)
         except FileNotFoundError:
             messagebox.showerror("Помилка", "Файл phone_types.json не знайдено.")

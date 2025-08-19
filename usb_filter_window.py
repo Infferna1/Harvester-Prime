@@ -1,8 +1,11 @@
+import os
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 import csv
 import json
 import re
+import sys
+from config_normalizer import resource_path
 
 
 # === Універсальна функція для відкриття текстових файлів ===
@@ -22,12 +25,9 @@ def open_text_file(file_path, mode="r"):
 
 # === Завантаження JSON ===
 def load_json_file(file_path):
-    try:
-        with open_text_file(file_path, "r") as f:
-            return json.load(f)
-    except Exception as e:
-        print(f"Помилка при читанні JSON {file_path}: {e}")
-        return {}
+    full_path = resource_path(file_path)
+    with open(full_path, encoding="utf-8") as f:
+        return json.load(f)
 
 
 class IgnoreSNWindow(tk.Toplevel):

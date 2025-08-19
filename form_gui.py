@@ -10,22 +10,16 @@ from enum import Enum
 from phone_window import PhoneWindow
 from usb_window import USBWindow
 from system_info_collector import collect_system_info
+from config_normalizer import resource_path
 
 # TODO: Normalize result tables in files PC/Phone
-def resource_path(relative_path):
-    try:
-        base_path = sys._MEIPASS
-    except Exception:
-        base_path = os.path.abspath(".")
-    return os.path.join(base_path, relative_path)
 
 
 def load_types_from_json(path):
+
     full_path = resource_path(path)
     with open(full_path, encoding="utf-8") as f:
-        data = json.load(f)
-    return data
-
+        return json.load(f)
 
 # Завантаження enum типів
 pc_types_data = load_types_from_json("Data/ConfigData/pc_types.json")
