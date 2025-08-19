@@ -1,11 +1,9 @@
 import csv
 import os
 import json
-import sys
 import tkinter as tk
 from tkinter import ttk, messagebox
 from config_normalizer import resource_path
-
 
 
 class PhoneWindow(tk.Toplevel):
@@ -13,6 +11,7 @@ class PhoneWindow(tk.Toplevel):
         super().__init__(parent)
         self.title("Введення даних щодо МКП")
         self.parent = parent
+        self.mkp_category_var = tk.StringVar(value="особистий")  # дефолтне значення
 
         # Завантаження типів із JSON
         json_path = resource_path("Data/ConfigData/phone_types.json")
@@ -37,7 +36,6 @@ class PhoneWindow(tk.Toplevel):
 
         self.responsible_entry.insert(0, responsible_value)
         self.department_entry.insert(0, department_value)
-
         self.on_type_change()
 
     def create_widgets(self):
@@ -64,63 +62,52 @@ class PhoneWindow(tk.Toplevel):
         self.dynamic_mac_entry = ttk.Entry(self, width=30)
         self.dynamic_mac_entry.grid(row=2, column=1, sticky="w", padx=5, pady=5)
 
-        # Рядок 3: Тип МКП
-        ttk.Label(self, text="Тип МКП:").grid(row=3, column=0, sticky="w", padx=5, pady=5)
+        # Рядок 3: Категорія МКП
+        ttk.Label(self, text="Категорія МКП:").grid(row=3, column=0, sticky="w", padx=5, pady=5)
+        category_frame = ttk.Frame(self)
+        category_frame.grid(row=3, column=1, columnspan=3, sticky="w", padx=5, pady=0)
+        ttk.Radiobutton(category_frame, text="особистий", variable=self.mkp_category_var, value="особистий").pack(side="left", padx=5)
+        ttk.Radiobutton(category_frame, text="робочий", variable=self.mkp_category_var, value="робочий").pack(side="left", padx=5)
 
-        # Фрейм для RadioButton'ів типу
+        # Рядок 4: Тип МКП
+        ttk.Label(self, text="Тип МКП:").grid(row=4, column=0, sticky="w", padx=5, pady=5)
         type_frame = ttk.Frame(self)
-        type_frame.grid(row=4, column=0, columnspan=4, sticky="w", padx=10, pady=0)
+        type_frame.grid(row=5, column=0, columnspan=4, sticky="w", padx=10, pady=0)
 
         # Додаємо "звичайний"
-        ttk.Radiobutton(
-            type_frame,
-            text=self.default_type,
-            variable=self.type_var,
-            value=self.default_type,
-            command=self.on_type_change
-        ).pack(side="left", padx=5)
+        ttk.Radiobutton(type_frame, text=self.default_type, variable=self.type_var, value=self.default_type, command=self.on_type_change).pack(side="left", padx=5)
 
         # Додаємо всі типи з special_types
         for type_name in self.special_types:
-            ttk.Radiobutton(
-                type_frame,
-                text=type_name,
-                variable=self.type_var,
-                value=type_name,
-                command=self.on_type_change
-            ).pack(side="left", padx=5)
+            ttk.Radiobutton(type_frame, text=type_name, variable=self.type_var, value=type_name, command=self.on_type_change).pack(side="left", padx=5)
 
-        # Рядок 5: AV + S/N
+        # Рядок 6: AV + S/N
         self.av_var = tk.StringVar()
         self.sn_var = tk.StringVar()
 
         self.av_frame = ttk.LabelFrame(self, text="AV")
-        self.av_frame.grid(row=5, column=0, columnspan=4, sticky="w", padx=10, pady=5)
+        self.av_frame.grid(row=6, column=0, columnspan=4, sticky="w", padx=10, pady=5)
 
-        self.av_radio_installed = ttk.Radiobutton(
-            self.av_frame, text="Встановлено", variable=self.av_var,
-            value="Встановлено", command=self.on_av_change, state="disabled"
-        )
+        self.av_radio_installed = ttk.Radiobutton(self.av_frame, text="Встановлено", variable=self.av_var,
+                                                  value="Встановлено", command=self.on_av_change, state="disabled")
         self.av_radio_installed.grid(row=0, column=0, padx=5, pady=2, sticky="w")
 
-        self.av_radio_not_installed = ttk.Radiobutton(
-            self.av_frame, text="Не встановлено", variable=self.av_var,
-            value="Не встановлено", command=self.on_av_change, state="disabled"
-        )
+        self.av_radio_not_installed = ttk.Radiobutton(self.av_frame, text="Не встановлено", variable=self.av_var,
+                                                      value="Не встановлено", command=self.on_av_change, state="disabled")
         self.av_radio_not_installed.grid(row=0, column=1, padx=5, pady=2, sticky="w")
 
         ttk.Label(self.av_frame, text="S/N:").grid(row=0, column=2, sticky="e", padx=5)
         self.sn_entry = ttk.Entry(self.av_frame, textvariable=self.sn_var, width=30, state="disabled")
         self.sn_entry.grid(row=0, column=3, padx=5, pady=2, sticky="w")
 
-        # Рядок 6: Пошта
-        ttk.Label(self, text="Пошта:").grid(row=6, column=0, sticky="e", padx=5, pady=5)
+        # Рядок 7: Пошта
+        ttk.Label(self, text="Пошта:").grid(row=7, column=0, sticky="e", padx=5, pady=5)
         self.email_entry = ttk.Entry(self, state="disabled", width=70)
-        self.email_entry.grid(row=6, column=1, columnspan=3, sticky="w", padx=5, pady=5)
+        self.email_entry.grid(row=7, column=1, columnspan=3, sticky="w", padx=5, pady=5)
 
-        # Кнопки
+        # Рядок 8: Кнопки
         btn_frame = ttk.Frame(self)
-        btn_frame.grid(row=7, column=0, columnspan=4, pady=10)
+        btn_frame.grid(row=8, column=0, columnspan=4, pady=10)
 
         save_btn = ttk.Button(btn_frame, text="Зберегти", command=self.save_data_to_csv)
         save_btn.pack(side="left", padx=10)
@@ -132,11 +119,9 @@ class PhoneWindow(tk.Toplevel):
 
     def on_type_change(self):
         current_type = self.type_var.get()
-
         if current_type in self.special_types:
             self.av_radio_installed.config(state="normal")
             self.av_radio_not_installed.config(state="normal")
-
             av_value = self.av_var.get()
             if av_value == "Встановлено":
                 self.email_entry.delete(0, tk.END)
@@ -177,6 +162,7 @@ class PhoneWindow(tk.Toplevel):
             "Статичний MAC": self.mac_entry.get(),
             "Динамічний MAC": self.dynamic_mac_entry.get(),
             "Модель": self.model_entry.get(),
+            "Категорія МКП": self.mkp_category_var.get(),
             "Тип МКП": self.type_var.get(),
             "AV": self.av_var.get(),
             "S/N": self.sn_entry.get(),
@@ -187,17 +173,13 @@ class PhoneWindow(tk.Toplevel):
         data = self.collect_data()
         filename = "collected_phone_data.csv"
         file_exists = os.path.isfile(filename)
-
         try:
             with open(filename, "a", encoding="utf-8", newline="") as f:
                 fieldnames = list(data.keys())
                 writer = csv.DictWriter(f, fieldnames=fieldnames)
-
                 if not file_exists:
                     writer.writeheader()
-
                 writer.writerow(data)
-
             messagebox.showinfo("Успіх", f"Дані успішно збережено у {filename}")
             self.destroy()
         except Exception as e:
