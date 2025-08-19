@@ -5,7 +5,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 
 
-class AdditionalWindow(tk.Toplevel):
+class PhoneWindow(tk.Toplevel):
     def __init__(self, parent, responsible_value="", department_value=""):
         super().__init__(parent)
         self.title("Введення даних щодо МКП")
@@ -13,7 +13,7 @@ class AdditionalWindow(tk.Toplevel):
 
         # Завантаження типів із JSON
         try:
-            with open("phone_types.json", "r", encoding="utf-8") as f:
+            with open("Data/ConfigData/phone_types.json", "r", encoding="utf-8") as f:
                 self.types_config = json.load(f)
         except FileNotFoundError:
             messagebox.showerror("Помилка", "Файл phone_types.json не знайдено.")
@@ -90,7 +90,7 @@ class AdditionalWindow(tk.Toplevel):
         self.av_var = tk.StringVar()
         self.sn_var = tk.StringVar()
 
-        self.av_frame = ttk.LabelFrame(self, text="AV / S/N")
+        self.av_frame = ttk.LabelFrame(self, text="AV")
         self.av_frame.grid(row=5, column=0, columnspan=4, sticky="w", padx=10, pady=5)
 
         self.av_radio_installed = ttk.Radiobutton(

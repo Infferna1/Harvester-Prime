@@ -7,10 +7,11 @@ import json
 import datetime
 import threading
 from enum import Enum
-from phone_window import AdditionalWindow
+from phone_window import PhoneWindow
+from usb_window import USBWindow
 from system_info_collector import collect_system_info
 
-
+# TODO: Normalize result tables in files PC/Phone
 def resource_path(relative_path):
     try:
         base_path = sys._MEIPASS
@@ -27,8 +28,8 @@ def load_types_from_json(path):
 
 
 # Завантаження enum типів
-pc_types_data = load_types_from_json("pc_types.json")
-network_types_data = load_types_from_json("network_types.json")
+pc_types_data = load_types_from_json("Data/ConfigData/pc_types.json")
+network_types_data = load_types_from_json("Data/ConfigData/network_types.json")
 
 PcType = Enum("PcType", {k: v for k, v in pc_types_data.items()})
 NetworkType = Enum("NetworkType", {k: v for k, v in network_types_data.items()})
@@ -49,7 +50,7 @@ class App(tk.Tk):
         self.pc_type_var = tk.StringVar(value=PcType.ТИП_1.value)
         self.network_type_var = tk.StringVar(value=NetworkType.МЕРЕЖА_1.value)
 
-        self.bool_fields_config = load_types_from_json("bool_fields_config.json")
+        self.bool_fields_config = load_types_from_json("Data/ConfigData/bool_fields_config.json")
         self.bool_vars = {}
 
         # Для динамічних полів p_software (замість prohibited_software)
@@ -116,9 +117,12 @@ class App(tk.Tk):
         ttk.Entry(row4, textvariable=self.owner_var, width=30).pack(side=tk.LEFT)
 
         # Кнопка "Додати МКП" під відділом і власником
-        add_mkp_frame = ttk.Frame(frame)
-        add_mkp_frame.pack(fill=tk.X, pady=(10, 20))
-        ttk.Button(add_mkp_frame, text="Додати МКП", command=self.test_button).pack(side=tk.LEFT, padx=5)
+        add_button_frame = ttk.Frame(frame)
+        add_button_frame.pack(fill=tk.X, pady=(10, 20))
+
+        btn_args = {'width': 12}
+        ttk.Button(add_button_frame, text="Додати МКП", command=self.add_phone_button, **btn_args).pack(side=tk.LEFT, padx=5)
+        ttk.Button(add_button_frame, text="USB", command=self.on_usb_click, **btn_args).pack(side=tk.LEFT, padx=5)
 
         # Логічні параметри
         ttk.Label(frame, text="\nПараметри (Так / Ні):", font=("Segoe UI", 10, "bold")).pack(anchor="w", pady=(5, 5))
@@ -208,10 +212,14 @@ class App(tk.Tk):
         self.ip_entry.config(state='normal')
         self.mac_entry.config(state='normal')
 
-    def test_button(self):
+    def add_phone_button(self):
         responsible = self.owner_var.get()
         department = self.department_var.get()
-        add_win = AdditionalWindow(self, responsible_value=responsible, department_value=department)
+        add_win = PhoneWindow(self, responsible_value=responsible, department_value=department)
+        add_win.grab_set()
+
+    def on_usb_click(self):
+        add_win = USBWindow(self)
         add_win.grab_set()
 
     def save_data(self):
