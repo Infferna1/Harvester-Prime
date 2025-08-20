@@ -74,33 +74,37 @@ class App(tk.Tk):
         ttk.Label(row0, text="Мережа", width=12).pack(side=tk.LEFT)
         ttk.OptionMenu(row0, self.network_type_var, self.network_type_var.get(), *[e.value for e in NetworkType]).pack(side=tk.LEFT, padx=(0, 15))
 
-        # Дата перевірки
+        # Дата перевірки / Hostname
         row1 = ttk.Frame(frame)
         row1.pack(fill=tk.X, pady=5)
         ttk.Label(row1, text="Дата перевірки", width=15).pack(side=tk.LEFT)
         self.date_entry = ttk.Entry(row1, width=30)
-        self.date_entry.pack(side=tk.LEFT)
+        self.date_entry.pack(side=tk.LEFT, padx=(0, 20))
         self.date_entry.insert(0, datetime.date.today().strftime("%d-%m-%Y"))
+        ttk.Label(row1, text="Hostname", width=15).pack(side=tk.LEFT)
+        self.hostname_entry = ttk.Entry(row1, textvariable=self.hostname_var, width=30, state='readonly')
+        self.hostname_entry.pack(side=tk.LEFT)
 
-        # Hostname / S/N
+        # S/N / IP
         row2 = ttk.Frame(frame)
         row2.pack(fill=tk.X, pady=2)
-        ttk.Label(row2, text="Hostname", width=15).pack(side=tk.LEFT)
-        self.hostname_entry = ttk.Entry(row2, textvariable=self.hostname_var, width=30, state='readonly')
-        self.hostname_entry.pack(side=tk.LEFT, padx=(0, 20))
         ttk.Label(row2, text="S/N", width=15).pack(side=tk.LEFT)
         self.sn_entry = ttk.Entry(row2, textvariable=self.sn_var, width=30, state='readonly')
-        self.sn_entry.pack(side=tk.LEFT)
+        self.sn_entry.pack(side=tk.LEFT, padx=(0, 20))
+        ttk.Label(row2, text="IP", width=15).pack(side=tk.LEFT)
+        self.ip_entry = ttk.Entry(row2, textvariable=self.ip_var, width=30, state='readonly')
+        self.ip_entry.pack(side=tk.LEFT)
 
-        # IP / MAC
+        # Static MAC / Random MAC
         row3 = ttk.Frame(frame)
         row3.pack(fill=tk.X, pady=2)
-        ttk.Label(row3, text="IP", width=15).pack(side=tk.LEFT)
-        self.ip_entry = ttk.Entry(row3, textvariable=self.ip_var, width=30, state='readonly')
-        self.ip_entry.pack(side=tk.LEFT, padx=(0, 20))
-        ttk.Label(row3, text="MAC", width=15).pack(side=tk.LEFT)
+        ttk.Label(row3, text="Static MAC", width=15).pack(side=tk.LEFT)
         self.mac_entry = ttk.Entry(row3, textvariable=self.mac_var, width=30, state='readonly')
-        self.mac_entry.pack(side=tk.LEFT)
+        self.mac_entry.pack(side=tk.LEFT, padx=(0, 20))
+        ttk.Label(row3, text="Random MAC", width=15).pack(side=tk.LEFT)
+        self.random_mac_var = tk.StringVar(value="")
+        self.random_mac_entry = ttk.Entry(row3, textvariable=self.random_mac_var, width=30, state='readonly')
+        self.random_mac_entry.pack(side=tk.LEFT)
 
         # Відділ / Власник
         row4 = ttk.Frame(frame)
@@ -199,12 +203,13 @@ class App(tk.Tk):
         self.hostname_var.set(info.get("Hostname", ""))
         self.sn_var.set(info.get("BIOS_Serial", ""))
         self.ip_var.set(info.get("IP", ""))
-        self.mac_var.set(info.get("MAC", ""))
+        self.random_mac_var.set(info.get("MAC", ""))
 
         self.hostname_entry.config(state='normal')
         self.sn_entry.config(state='normal')
         self.ip_entry.config(state='normal')
         self.mac_entry.config(state='normal')
+        self.random_mac_entry.config(state='normal')
 
     def add_phone_button(self):
         responsible = self.owner_var.get()
@@ -224,7 +229,8 @@ class App(tk.Tk):
             "Hostname": self.hostname_var.get(),
             "S/N": self.sn_var.get().strip(),
             "IP": self.ip_var.get().strip(),
-            "MAC": self.mac_var.get().strip(),
+            "Static MAC": self.mac_var.get().strip(),
+            "Random MAC": self.random_mac_var.get().strip(),
             "Відділ": self.department_var.get(),
             "Власник": self.owner_var.get(),
         }
