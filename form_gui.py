@@ -257,8 +257,8 @@ class App(tk.Tk):
 
             for row in existing_data:
                 if row["S/N"] == data["S/N"]:
-                    if data["IP"] and data["MAC"]:
-                        if row["IP"] == data["IP"] and row["MAC"] == data["MAC"]:
+                    if data["IP"] and data["Static MAC"]:
+                        if row["IP"] == data["IP"] and row["Static MAC"] == data["Static MAC"]:
                             messagebox.showwarning("Попередження", "Запис з таким S/N, IP і MAC уже існує.")
                             return
                     else:
