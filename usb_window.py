@@ -1,4 +1,3 @@
-import sys
 import tkinter as tk
 import csv
 import os
@@ -579,6 +578,7 @@ class USBWindow(tk.Toplevel):
         self.entry_vars[3].set(str(total_reg))
         self.entry_vars[4].set(str(percent_reg))
 
+    # Use function from config_normalizer.py
     def load_texts(self, path, required_keys=None):
         try:
             full_path = resource_path(path)  # будуємо абсолютний шлях

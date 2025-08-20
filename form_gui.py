@@ -1,25 +1,17 @@
 import csv
-import sys
 import tkinter as tk
 from tkinter import ttk, messagebox
 import os
-import json
 import datetime
 import threading
 from enum import Enum
 from phone_window import PhoneWindow
 from usb_window import USBWindow
 from system_info_collector import collect_system_info
-from config_normalizer import resource_path
+from config_normalizer import load_types_from_json
 
 # TODO: Normalize result tables in files PC/Phone
 
-
-def load_types_from_json(path):
-
-    full_path = resource_path(path)
-    with open(full_path, encoding="utf-8") as f:
-        return json.load(f)
 
 # Завантаження enum типів
 pc_types_data = load_types_from_json("Data/ConfigData/pc_types.json")
@@ -45,15 +37,19 @@ class App(tk.Tk):
         self.network_type_var = tk.StringVar(value=NetworkType.МЕРЕЖА_1.value)
 
         self.bool_fields_config = load_types_from_json("Data/ConfigData/bool_fields_config.json")
+        self.field_names = load_types_from_json("Data/ConfigData/pc_field_names.json")
+        self.label_to_id = {field["label"]: field["id"] for field in self.bool_fields_config}
         self.bool_vars = {}
+
 
         # Для динамічних полів p_software (замість prohibited_software)
         p_soft_conf = next(
-            (item for item in self.bool_fields_config if item.get("id") == "p_software"),
+            (item for item in self.bool_fields_config if item.get("id") == "pSoftware"),
             None
         )
         if p_soft_conf:
             self.p_software_label = p_soft_conf["label"]
+            self.p_software_id = p_soft_conf["id"]
 
         self.p_software_vars = []
         self.p_software_frame = None
@@ -222,22 +218,25 @@ class App(tk.Tk):
         add_win.grab_set()
 
     def save_data(self):
+        f = self.field_names
+
         data = {
-            "Тип ПК": self.pc_type_var.get(),
-            "Мережа": self.network_type_var.get(),
-            "Дата перевірки": self.date_entry.get(),
-            "Hostname": self.hostname_var.get(),
-            "S/N": self.sn_var.get().strip(),
-            "IP": self.ip_var.get().strip(),
-            "Static MAC": self.mac_var.get().strip(),
-            "Random MAC": self.random_mac_var.get().strip(),
-            "Відділ": self.department_var.get(),
-            "Власник": self.owner_var.get(),
+            f["pcType"]: self.pc_type_var.get(),
+            f["network"]: self.network_type_var.get(),
+            f["checkDate"]: self.date_entry.get(),
+            f["hostname"]: self.hostname_var.get(),
+            f["sn"]: self.sn_var.get().strip(),
+            f["ip"]: self.ip_var.get().strip(),
+            f["staticMac"]: self.mac_var.get().strip(),
+            f["randomMac"]: self.random_mac_var.get().strip(),
+            f["department"]: self.department_var.get(),
+            f["owner"]: self.owner_var.get(),
         }
 
-        for key, var in self.bool_vars.items():
-            # Додаємо всі bool поля, включно з "p_software"
-            data[key] = var.get()
+        for label, var in self.bool_vars.items():
+            field_id = self.label_to_id.get(label)
+            if field_id:
+                data[field_id] = var.get()
 
         # Збираємо список ПЗ, якщо є
         p_software_list = []
@@ -256,9 +255,9 @@ class App(tk.Tk):
                         existing_data.append(row)
 
             for row in existing_data:
-                if row["S/N"] == data["S/N"]:
-                    if data["IP"] and data["Static MAC"]:
-                        if row["IP"] == data["IP"] and row["Static MAC"] == data["Static MAC"]:
+                if row["sn"] == data["sn"]:
+                    if data["ip"] and data["staticMac"]:
+                        if row["ip"] == data["ip"] and row["staticMac"] == data["staticMac"]:
                             messagebox.showwarning("Попередження", "Запис з таким S/N, IP і MAC уже існує.")
                             return
                     else:
@@ -278,13 +277,13 @@ class App(tk.Tk):
             if p_software_list:
                 p_software_filename = "p_software.csv"
                 p_software_file_exists = os.path.isfile(p_software_filename)
-                col_name = f"{self.p_software_label}"
+                col_name = f"{self.p_software_id}"
                 with open(p_software_filename, "a", encoding="utf-8", newline='') as pf:
-                    writer = csv.DictWriter(pf, fieldnames=["S/N", col_name])
+                    writer = csv.DictWriter(pf, fieldnames=["sn", col_name], quoting=csv.QUOTE_ALL)
                     if not p_software_file_exists:
                         writer.writeheader()
                     writer.writerow({
-                        "S/N": data["S/N"],
+                        "sn": data["sn"],
                         col_name: "; ".join(p_software_list)
                     })
 

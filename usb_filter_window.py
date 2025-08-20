@@ -1,11 +1,8 @@
-import os
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 import csv
-import json
 import re
-import sys
-from config_normalizer import resource_path
+from config_normalizer import load_types_from_json
 
 
 # === Універсальна функція для відкриття текстових файлів ===
@@ -22,12 +19,6 @@ def open_text_file(file_path, mode="r"):
     except UnicodeDecodeError:
         return open(file_path, mode, encoding="cp1251")
 
-
-# === Завантаження JSON ===
-def load_json_file(file_path):
-    full_path = resource_path(file_path)
-    with open(full_path, encoding="utf-8") as f:
-        return json.load(f)
 
 
 class IgnoreSNWindow(tk.Toplevel):
@@ -126,9 +117,9 @@ class USBFilterWindow(tk.Toplevel):
         return fallback_result
 
     def _build_ui(self):
-        labels = load_json_file("Data/ConfigData/labels_w_usb.json")
-        usb_columns_config = load_json_file("Data/ConfigData/UsbData/usb_columns_config.json")
-        device_types = load_json_file("Data/ConfigData/UsbData/usb_types.json")
+        labels = load_types_from_json("Data/ConfigData/labels_w_usb.json")
+        usb_columns_config = load_types_from_json("Data/ConfigData/UsbData/usb_columns_config.json")
+        device_types = load_types_from_json("Data/ConfigData/UsbData/usb_types.json")
 
         if not labels or not usb_columns_config or not device_types:
             messagebox.showerror("Помилка", "Не вдалося завантажити дані з файлів.")

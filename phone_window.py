@@ -1,9 +1,8 @@
 import csv
 import os
-import json
 import tkinter as tk
 from tkinter import ttk, messagebox
-from config_normalizer import resource_path
+from config_normalizer import load_types_from_json
 
 
 class PhoneWindow(tk.Toplevel):
@@ -12,20 +11,10 @@ class PhoneWindow(tk.Toplevel):
         self.title("Введення даних щодо МКП")
         self.parent = parent
         self.mkp_category_var = tk.StringVar(value="особистий")  # дефолтне значення
+        self.field_names = load_types_from_json("Data/ConfigData/phone_field_names.json");
 
         # Завантаження типів із JSON
-        json_path = resource_path("Data/ConfigData/phone_types.json")
-        try:
-            with open(json_path, "r", encoding="utf-8") as f:
-                self.types_config = json.load(f)
-        except FileNotFoundError:
-            messagebox.showerror("Помилка", "Файл phone_types.json не знайдено.")
-            self.destroy()
-            return
-        except json.JSONDecodeError:
-            messagebox.showerror("Помилка", "Файл phone_types.json містить помилку.")
-            self.destroy()
-            return
+        self.types_config = load_types_from_json("Data/ConfigData/phone_types.json")
 
         self.special_types = self.types_config.get("special_types", [])
         self.default_type = self.types_config.get("default", "звичайний")
@@ -156,17 +145,19 @@ class PhoneWindow(tk.Toplevel):
             self.sn_entry.config(state="normal")
 
     def collect_data(self):
+        f = self.field_names
+
         return {
-            "Відповідальний": self.responsible_entry.get(),
-            "Відділ": self.department_entry.get(),
-            "Статичний MAC": self.mac_entry.get(),
-            "Динамічний MAC": self.dynamic_mac_entry.get(),
-            "Модель": self.model_entry.get(),
-            "Категорія МКП": self.mkp_category_var.get(),
-            "Тип МКП": self.type_var.get(),
-            "AV": self.av_var.get(),
-            "S/N": self.sn_entry.get(),
-            "Пошта": self.email_entry.get()
+            f["responsible"]: self.responsible_entry.get(),
+            f["department"]: self.department_entry.get(),
+            f["staticMac"]: self.mac_entry.get(),
+            f["randomMac"]: self.dynamic_mac_entry.get(),
+            f["model"]: self.model_entry.get(),
+            f["phoneCategory"]: self.mkp_category_var.get(),
+            f["phoneType"]: self.type_var.get(),
+            f["av"]: self.av_var.get(),
+            f["sn"]: self.sn_entry.get(),
+            f["mail"]: self.email_entry.get()
         }
 
     def save_data_to_csv(self):
