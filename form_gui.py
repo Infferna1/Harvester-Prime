@@ -267,7 +267,7 @@ class App(tk.Tk):
 
             with open(filename, "a", encoding="utf-8", newline='') as f:
                 fieldnames = list(data.keys())
-                writer = csv.DictWriter(f, fieldnames=fieldnames)
+                writer = csv.DictWriter(f, fieldnames=fieldnames, quoting=csv.QUOTE_ALL)
 
                 if not file_exists:
                     writer.writeheader()

@@ -288,7 +288,7 @@ class USBFilterWindow(tk.Toplevel):
 
         # Запис завжди у utf-8
         with open(file_path, "w", newline="", encoding="utf-8") as f:
-            writer = csv.writer(f)
+            writer = csv.writer(f, quoting=csv.QUOTE_ALL)
             for rec in data:
                 writer.writerow(rec)
 
