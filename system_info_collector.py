@@ -12,7 +12,8 @@ def can_use_console():
             ["cmd.exe", "/c", "ipconfig /all"],
             capture_output=True,
             text=True,
-            timeout=5
+            timeout=5,
+            creationflags=subprocess.CREATE_NO_WINDOW
         )
         return proc.returncode == 0 and bool(proc.stdout.strip())
     except Exception:
@@ -22,7 +23,7 @@ def run_powershell_command(cmd):
     try:
         completed = subprocess.run(
             ["powershell", "-NoProfile", "-Command", cmd],
-            capture_output=True, text=True, timeout=5
+            capture_output=True, text=True, timeout=5, creationflags=subprocess.CREATE_NO_WINDOW
         )
         if completed.returncode == 0:
             return completed.stdout.strip()
