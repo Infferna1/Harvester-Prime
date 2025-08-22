@@ -33,6 +33,7 @@ class App(tk.Tk):
         self.mac_var = tk.StringVar(value="")
         self.department_var = tk.StringVar()
         self.owner_var = tk.StringVar()
+        self.agent_id_var = tk.StringVar()
         self.pc_type_var = tk.StringVar(value=PcType.ТИП_1.value)
         self.network_type_var = tk.StringVar(value=NetworkType.МЕРЕЖА_1.value)
 
@@ -109,6 +110,11 @@ class App(tk.Tk):
         ttk.Entry(row4, textvariable=self.department_var, width=30).pack(side=tk.LEFT, padx=(0, 20))
         ttk.Label(row4, text="Власник", width=15).pack(side=tk.LEFT)
         ttk.Entry(row4, textvariable=self.owner_var, width=30).pack(side=tk.LEFT)
+
+        row5 = ttk.Frame(frame)
+        row5.pack(fill=tk.X, pady=2)
+        ttk.Label(row5, text="Agent ID", width=15).pack(side=tk.LEFT)
+        ttk.Entry(row5, textvariable=self.agent_id_var, width=30).pack(side=tk.LEFT, padx=(0, 20))
 
         # Кнопка "Додати МКП" під відділом і власником
         add_button_frame = ttk.Frame(frame)
@@ -231,6 +237,7 @@ class App(tk.Tk):
             f["randomMac"]: self.random_mac_var.get().strip(),
             f["department"]: self.department_var.get(),
             f["owner"]: self.owner_var.get(),
+            f["agentId"]: self.agent_id_var.get(),
         }
 
         for label, var in self.bool_vars.items():
