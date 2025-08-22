@@ -328,19 +328,14 @@ class USBWindow(tk.Toplevel):
                                 continue
 
                             device_name = row[0].strip()
-                            device_type = row[1].strip().lower()  # Переводимо в нижній регістр
+                            device_type = row[1].strip().lower()
                             serial = row[2].strip()
                             last_date = row[3].strip()
 
-                            # Перевіряємо тип пристрою
-                            print(f"Перевірка типу пристрою: '{device_type}'")
-
-                            # Фільтруємо по типу пристрою з usb_types.json
                             if device_type not in device_types:
-                                print(f"  Пропускаємо пристрій з типом '{device_type}' — не в списку дозволених типів")
                                 continue
 
-                            # Пошук ПК по серійному номеру
+                            # --- Пошук ПК по серійному номеру ---
                             found = None
                             for pc in self.pc_list:
                                 for sn_key in keys["serial_numbers"]:
@@ -351,23 +346,28 @@ class USBWindow(tk.Toplevel):
                                 if found:
                                     break
 
-                            if not found:
-                                print(
-                                    f"  НЕ знайдено АРМ для серійного номера '{computer_serial}' серед keys: {keys['serial_numbers']}")
+                            if found:
+                                pc_type_key = keys["pc_type"]
+                                host_key = keys["host"]
+                                net_key = keys["net"]
+                                found = {k.lstrip('\ufeff'): v for k, v in found.items()}
+                                pc_type = found.get(pc_type_key, "Невідомо")
+                                hostname = found.get(host_key, "Невідомо")
+                                network = found.get(net_key, "Невідомо")
+
+                                print(f"[DEBUG] Знайдено ПК: SN={computer_serial}, "
+                                      f"pcType={pc_type}, hostname={hostname}, network={network}")
                             else:
-                                print(
-                                    f"  Знайдено АРМ для серійного номера '{computer_serial}': ПК тип '{found.get(keys['pc_type'], 'Невідомо')}', Hostname '{found.get(keys['host'], 'Невідомо')}', Мережа '{found.get(keys['net'], 'Невідомо')}'")
-
-                            a_info = found
-
-                            pc_type = a_info.get(keys["pc_type"], "Невідомо") if a_info else "Невідомо"
-                            hostname = a_info.get(keys["host"], "Невідомо") if a_info else "Невідомо"
-                            network = a_info.get(keys["net"], "Невідомо") if a_info else "Невідомо"
+                                pc_type = "Невідомо"
+                                hostname = "Невідомо"
+                                network = "Невідомо"
+                                print(f"[DEBUG] НЕ знайдено ПК для SN={computer_serial}")
 
                             results.append([
                                 device_name, device_type, serial, last_date,
                                 computer_serial, pc_type, hostname, network
                             ])
+
                     print(f"Файл {filename} прочитано з кодуванням {encoding}")
                     file_loaded = True
                     break
@@ -387,15 +387,11 @@ class USBWindow(tk.Toplevel):
         serial_to_g = self.load_g_mapping()
         self.save_final_csv(results, serial_to_g)
 
-        print("allowed_types_counts перед викликом filter_and_count_by_date:", device_types)
-
-        # Фільтруємо за датою та записуємо результат
         self.filter_and_count_by_date(output_path="result/usb_pc_result.csv",
                                       usb_rows_types=usb_rows_types,
                                       type_map=type_map,
                                       cols=cols,
                                       rows=rows)
-
 
     def load_g_mapping(self):
         serial_to_g = {}
