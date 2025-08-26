@@ -2,7 +2,7 @@ import csv
 import os
 import tkinter as tk
 from tkinter import ttk, messagebox
-from config_normalizer import load_types_from_json
+from config_normalizer import load_types_from_json, calculateNextNumber
 
 
 class PhoneWindow(tk.Toplevel):
@@ -161,9 +161,15 @@ class PhoneWindow(tk.Toplevel):
         }
 
     def save_data_to_csv(self):
-        data = self.collect_data()
+        collected = self.collect_data()
         filename = "collected_phone_data.csv"
         file_exists = os.path.isfile(filename)
+
+        next_number = calculateNextNumber(file_exists, filename)
+
+        data = {"numberInOrder": next_number}
+        data.update(collected)
+
         try:
             with open(filename, "a", encoding="utf-8", newline="") as f:
                 fieldnames = list(data.keys())
@@ -175,11 +181,6 @@ class PhoneWindow(tk.Toplevel):
             self.destroy()
         except Exception as e:
             messagebox.showerror("Помилка", f"Не вдалося зберегти дані:\n{e}")
-
-    def save_data(self):
-        data = self.collect_data()
-        print("Збережені дані:", data)
-        self.destroy()
 
     def cancel(self):
         self.destroy()

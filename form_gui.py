@@ -8,7 +8,7 @@ from enum import Enum
 from phone_window import PhoneWindow
 from usb_window import USBWindow
 from system_info_collector import collect_system_info
-from config_normalizer import load_types_from_json
+from config_normalizer import load_types_from_json, calculateNextNumber
 
 # TODO: Normalize result tables in files PC/Phone
 
@@ -219,8 +219,11 @@ class App(tk.Tk):
 
     def save_data(self):
         f = self.field_names
+        filename = "collected_data.csv"
+        file_exists = os.path.isfile(filename)
 
         data = {
+            "numberInOrder": calculateNextNumber(file_exists, filename),
             f["pcType"]: self.pc_type_var.get(),
             f["network"]: self.network_type_var.get(),
             f["checkDate"]: self.date_entry.get(),
@@ -243,8 +246,6 @@ class App(tk.Tk):
         if self.bool_vars.get(self.p_software_label) and self.bool_vars[self.p_software_label].get() == "Знайдено":
             p_software_list = [e.get().strip() for e in self.p_software_vars if e.get().strip()]
 
-        filename = "collected_data.csv"
-        file_exists = os.path.isfile(filename)
 
         try:
             existing_data = []
