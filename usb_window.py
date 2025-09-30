@@ -347,9 +347,9 @@ class USBWindow(tk.Toplevel):
                                     break
 
                             if found:
-                                pc_type_key = keys["pc_type"]
-                                host_key = keys["host"]
-                                net_key = keys["net"]
+                                pc_type_key = keys["pcType"]
+                                host_key = keys["hostname"]
+                                net_key = keys["network"]
                                 found = {k.lstrip('\ufeff'): v for k, v in found.items()}
                                 pc_type = found.get(pc_type_key, "Невідомо")
                                 hostname = found.get(host_key, "Невідомо")
