@@ -8,7 +8,7 @@ from enum import Enum
 from phone_window import PhoneWindow
 from usb_window import USBWindow
 from system_info_collector import collect_system_info
-from config_normalizer import load_types_from_json, calculateNextNumber
+from config_normalizer import load_types_from_json, calculateNextNumber, add_copy_paste_bindings
 
 # TODO: Normalize result tables in files PC/Phone
 
@@ -77,6 +77,7 @@ class App(tk.Tk):
         row1.pack(fill=tk.X, pady=5)
         ttk.Label(row1, text="Дата перевірки", width=15).pack(side=tk.LEFT)
         self.date_entry = ttk.Entry(row1, width=30)
+        add_copy_paste_bindings(self.date_entry)
         self.date_entry.pack(side=tk.LEFT, padx=(0, 20))
         self.date_entry.insert(0, datetime.date.today().strftime("%d-%m-%Y"))
         ttk.Label(row1, text="Hostname", width=15).pack(side=tk.LEFT)
@@ -108,15 +109,25 @@ class App(tk.Tk):
         # Відділ / Власник
         row4 = ttk.Frame(frame)
         row4.pack(fill=tk.X, pady=2)
-        ttk.Label(row4, text="Відділ", width=15).pack(side=tk.LEFT)
-        ttk.Entry(row4, textvariable=self.department_var, width=30).pack(side=tk.LEFT, padx=(0, 20))
-        ttk.Label(row4, text="Власник", width=15).pack(side=tk.LEFT)
-        ttk.Entry(row4, textvariable=self.owner_var, width=30).pack(side=tk.LEFT)
 
+        ttk.Label(row4, text="Відділ", width=15).pack(side=tk.LEFT)
+        self.department_entry = ttk.Entry(row4, textvariable=self.department_var, width=30)
+        self.department_entry.pack(side=tk.LEFT, padx=(0, 20))
+        add_copy_paste_bindings(self.department_entry)
+
+        ttk.Label(row4, text="Власник", width=15).pack(side=tk.LEFT)
+        self.owner_entry = ttk.Entry(row4, textvariable=self.owner_var, width=30)
+        self.owner_entry.pack(side=tk.LEFT)
+        add_copy_paste_bindings(self.owner_entry)
+
+        # Agent ID
         row5 = ttk.Frame(frame)
         row5.pack(fill=tk.X, pady=2)
+
         ttk.Label(row5, text="Agent ID", width=15).pack(side=tk.LEFT)
-        ttk.Entry(row5, textvariable=self.agent_id_var, width=30).pack(side=tk.LEFT, padx=(0, 20))
+        self.agent_id_entry = ttk.Entry(row5, textvariable=self.agent_id_var, width=30)
+        self.agent_id_entry.pack(side=tk.LEFT, padx=(0, 20))
+        add_copy_paste_bindings(self.agent_id_entry)
 
         # Кнопка "Додати МКП" під відділом і власником
         add_button_frame = ttk.Frame(frame)
@@ -214,6 +225,15 @@ class App(tk.Tk):
         self.ip_entry.config(state='normal')
         self.mac_entry.config(state='normal')
         self.random_mac_entry.config(state='normal')
+
+        for entry in [
+            self.hostname_entry,
+            self.sn_entry,
+            self.ip_entry,
+            self.mac_entry,
+            self.random_mac_entry,
+        ]:
+            add_copy_paste_bindings(entry)
 
     def add_phone_button(self):
         responsible = self.owner_var.get()

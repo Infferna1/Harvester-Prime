@@ -2,7 +2,7 @@ import csv
 import os
 import tkinter as tk
 from tkinter import ttk, messagebox
-from config_normalizer import load_types_from_json, calculateNextNumber
+from config_normalizer import load_types_from_json, calculateNextNumber, add_copy_paste_bindings
 
 
 class PhoneWindow(tk.Toplevel):
@@ -31,24 +31,29 @@ class PhoneWindow(tk.Toplevel):
         # Рядок 0
         ttk.Label(self, text="Відповідальний:").grid(row=0, column=0, sticky="w", padx=5, pady=5)
         self.responsible_entry = ttk.Entry(self, width=30)
+        add_copy_paste_bindings(self.responsible_entry)
         self.responsible_entry.grid(row=0, column=1, sticky="w", padx=5, pady=5)
 
         ttk.Label(self, text="Відділ:").grid(row=0, column=2, sticky="w", padx=5, pady=5)
         self.department_entry = ttk.Entry(self, width=30)
+        add_copy_paste_bindings(self.department_entry)
         self.department_entry.grid(row=0, column=3, sticky="w", padx=5, pady=5)
 
         # Рядок 1
         ttk.Label(self, text="Статичний MAC:").grid(row=1, column=0, sticky="w", padx=5, pady=5)
         self.mac_entry = ttk.Entry(self, width=30)
+        add_copy_paste_bindings(self.mac_entry)
         self.mac_entry.grid(row=1, column=1, sticky="w", padx=5, pady=5)
 
         ttk.Label(self, text="Модель:").grid(row=1, column=2, sticky="w", padx=5, pady=5)
         self.model_entry = ttk.Entry(self, width=30)
+        add_copy_paste_bindings(self.model_entry)
         self.model_entry.grid(row=1, column=3, sticky="w", padx=5, pady=5)
 
         # Рядок 2
         ttk.Label(self, text="Динамічний MAC:").grid(row=2, column=0, sticky="w", padx=5, pady=5)
         self.dynamic_mac_entry = ttk.Entry(self, width=30)
+        add_copy_paste_bindings(self.dynamic_mac_entry)
         self.dynamic_mac_entry.grid(row=2, column=1, sticky="w", padx=5, pady=5)
 
         # Рядок 3: Категорія МКП
@@ -119,6 +124,7 @@ class PhoneWindow(tk.Toplevel):
                 self.sn_entry.config(state="disabled")
             elif av_value == "Не встановлено":
                 self.email_entry.config(state="normal")
+                add_copy_paste_bindings(self.email_entry)
                 self.sn_entry.config(state="normal")
             else:
                 self.email_entry.delete(0, tk.END)
@@ -142,7 +148,9 @@ class PhoneWindow(tk.Toplevel):
             self.sn_entry.config(state="disabled")
         else:
             self.email_entry.config(state="normal")
+            add_copy_paste_bindings(self.email_entry)
             self.sn_entry.config(state="normal")
+            add_copy_paste_bindings(self.sn_entry)
 
     def collect_data(self):
         f = self.field_names

@@ -38,3 +38,28 @@ def calculateNextNumber(file_exists, filename):
             print(f"[WARN] Не вдалося визначити numberInOrder: {e}")
             next_number = 1
     return next_number
+
+# Bruh, this thing is so stupid, I hate tkinter
+def add_copy_paste_bindings(widget):
+    def handler(event):
+        ctrl = (event.state & 0x4) != 0
+        if ctrl:
+            char = event.char.lower()
+            # Діагностичний вивід
+            print(f"Pressed char: {repr(char)}, state: {event.state}")
+
+            if char == '\x01':  # Ctrl+A
+                widget.event_generate('<<SelectAll>>')
+                return "break"
+            elif char == '\x03':  # Ctrl+C
+                widget.event_generate('<<Copy>>')
+                return "break"
+            elif char == '\x16':  # Ctrl+V
+                widget.event_generate('<<Paste>>')
+                return "break"
+            elif char == '\x18':  # Ctrl+X
+                widget.event_generate('<<Cut>>')
+                return "break"
+        return None
+
+    widget.bind("<KeyPress>", handler)

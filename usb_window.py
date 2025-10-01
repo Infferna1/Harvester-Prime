@@ -5,7 +5,7 @@ import json
 from tkinter import ttk, filedialog, messagebox
 from datetime import datetime, timedelta
 from usb_filter_window import USBFilterWindow
-from config_normalizer import resource_path
+from config_normalizer import resource_path, add_copy_paste_bindings
 
 
 class USBWindow(tk.Toplevel):
@@ -52,36 +52,59 @@ class USBWindow(tk.Toplevel):
         # 1.:
         frame1 = ttk.Frame(lbl_frame)
         frame1.pack(fill="x", pady=5)
+
         ttk.Label(frame1, text=self.texts["line1_part1"]).pack(side="left")
+
         var1 = tk.StringVar()
         self.entry_vars.append(var1)
-        ttk.Entry(frame1, textvariable=var1, width=6).pack(side="left", padx=2)
+        entry1 = ttk.Entry(frame1, textvariable=var1, width=6)
+        entry1.pack(side="left", padx=2)
+        add_copy_paste_bindings(entry1)
+
         ttk.Label(frame1, text=self.texts["line1_part2"]).pack(side="left")
+
         var2 = tk.StringVar()
         self.entry_vars.append(var2)
-        ttk.Entry(frame1, textvariable=var2, width=6).pack(side="left", padx=2)
+        entry2 = ttk.Entry(frame1, textvariable=var2, width=6)
+        entry2.pack(side="left", padx=2)
+        add_copy_paste_bindings(entry2)
+
         ttk.Label(frame1, text=self.texts["line1_part3"]).pack(side="left")
 
         # 2.:
         frame2 = ttk.Frame(lbl_frame)
         frame2.pack(fill="x", pady=5)
+
         ttk.Label(frame2, text=self.texts["line2_part1"]).pack(side="left")
+
         var3 = tk.StringVar()
         self.entry_vars.append(var3)
-        ttk.Entry(frame2, textvariable=var3, width=6).pack(side="left", padx=2)
+        entry3 = ttk.Entry(frame2, textvariable=var3, width=6)
+        entry3.pack(side="left", padx=2)
+        add_copy_paste_bindings(entry3)  # ✅
+
         ttk.Label(frame2, text=self.texts["line2_part2"]).pack(side="left")
 
         # 3.:
         frame3 = ttk.Frame(lbl_frame)
         frame3.pack(fill="x", pady=5)
+
         ttk.Label(frame3, text=self.texts["line3_part1"]).pack(side="left")
+
         var4 = tk.StringVar()
         self.entry_vars.append(var4)
-        ttk.Entry(frame3, textvariable=var4, width=6).pack(side="left", padx=2)
+        entry4 = ttk.Entry(frame3, textvariable=var4, width=6)
+        entry4.pack(side="left", padx=2)
+        add_copy_paste_bindings(entry4)  # ✅
+
         ttk.Label(frame3, text=self.texts["line3_part2"]).pack(side="left")
+
         var5 = tk.StringVar()
         self.entry_vars.append(var5)
-        ttk.Entry(frame3, textvariable=var5, width=6).pack(side="left", padx=2)
+        entry5 = ttk.Entry(frame3, textvariable=var5, width=6)
+        entry5.pack(side="left", padx=2)
+        add_copy_paste_bindings(entry5)  # ✅
+
         ttk.Label(frame3, text=self.texts["line3_part3"]).pack(side="left")
 
         # Таблиця
