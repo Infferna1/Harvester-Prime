@@ -247,8 +247,8 @@ class App(tk.Tk):
 
             try:
                 entry.icursor(new_cursor_pos)
-            except:
-                pass
+            except tk.TclError as err:
+                print(f"Помилка при встановленні позиції курсора: {err}")
 
             setattr(self, formatting_flag_name, False)
 
