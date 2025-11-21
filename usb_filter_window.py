@@ -5,7 +5,7 @@ import re
 from config_normalizer import load_types_from_json
 
 
-# === Універсальна функція для відкриття текстових файлів ===
+# TODO: Move this to config_normalizer
 def open_text_file(file_path, mode="r"):
     """
     Відкриває файл у UTF-8, якщо не вдалося — у CP1251.
@@ -73,44 +73,53 @@ class USBFilterWindow(tk.Toplevel):
     def set_ignore_sn(self, ignore_sn_list):
         self.ignore_sn = ignore_sn_list
 
+
     def _get_s_level_from_second_file(self, serial_number, second_file_path, type_map):
-        suffix = serial_number[-6:]
+        serial_number = serial_number.strip()
+        suffix = serial_number[-6:] if len(serial_number) >= 6 else serial_number
 
-        # Беремо мапу рівнів
+        print(f"[INFO] Обробка серійного номера: '{serial_number}', суфікс для пошуку: '{suffix}'")
+
         s_levels = type_map
-
-        # Формуємо regex із значень
         regex_values = [v for v in s_levels.values() if v != "Неідентифіковано"]
         regex_pattern = r"(" + "|".join(map(re.escape, regex_values)) + r")"
 
-        encodings = ["utf-8", "cp1251"]
+        encodings = ["utf-8", "cp1251", "utf-8-sig"]
         for enc in encodings:
             try:
                 print(f"[INFO] Спроба відкриття файлу {second_file_path} з кодуванням {enc}")
                 with open(second_file_path, "r", encoding=enc, newline="") as f:
                     reader = csv.reader(f, delimiter=";")
                     for row_count, row in enumerate(reader, start=1):
-                        if len(row) < 5:
+                        if len(row) < 2:
+                            print(f"[DEBUG] Пропущено рядок {row_count} — недостатньо колонок: {row}")
                             continue
-                        sn = row[4].strip()
-                        ob_num = row[1].strip()
+
+                        sn = row[0].strip().strip('"').replace('\ufeff', '')
+                        ob_num = row[1].strip().strip('"')
+
+                        print(f"[DEBUG] Рядок {row_count}: SN='{sn}', Об'єкт='{ob_num}'")
 
                         if suffix and suffix in sn:
-                            print(f"[MATCH] Суфікс '{suffix}' знайдено в серійному номері '{sn}'")
+                            print(f"[MATCH] Знайдено суфікс '{suffix}' у SN '{sn}'")
+
                             match = re.search(regex_pattern, ob_num, re.IGNORECASE)
                             if match:
                                 found_value = match.group(1)
-                                # Знаходимо ключ за значенням
-                                key = next((k for k, v in s_levels.items() if v.lower() == found_value.lower()),
-                                           None)
+                                print(f"[MATCH] Regex знайшов: '{found_value}' у '{ob_num}'")
+
+                                key = next((k for k, v in s_levels.items() if v.lower() == found_value.lower()), None)
                                 result = s_levels.get(key, s_levels.get("Неідентифіковано"))
+                                print(f"[RESULT] Знайдено рівень: {result}")
                                 return result
+                            else:
+                                print(f"[DEBUG] Regex не спрацював для об'єкта '{ob_num}'")
 
             except UnicodeDecodeError:
                 print(f"[WARNING] Не вдалося відкрити файл з кодуванням {enc}, пробуємо інше")
                 continue
             except Exception as e:
-                print(f"[ERROR] Помилка при обробці другого файлу: {e}")
+                print(f"[ERROR] Помилка при обробці файлу: {e}")
 
         fallback_result = s_levels.get("Неідентифіковано", "Неідентифіковано")
         print(f"[RESULT] За замовчуванням повертаємо: {fallback_result}")

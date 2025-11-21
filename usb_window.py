@@ -518,7 +518,8 @@ class USBWindow(tk.Toplevel):
 
         # Перетворюємо дату та визначаємо проміжок
         check_date = datetime.strptime(self.check_date_var.get(), "%d.%m.%Y")
-        start_date = check_date - timedelta(days=10)
+        # TODO: Change days to variable
+        start_date = check_date - timedelta(days=30)
 
         counts = {pc: {code: 0 for code in type_map.values()} for pc in rows}
 
