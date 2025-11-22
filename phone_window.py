@@ -2,7 +2,7 @@ import csv
 import os
 import tkinter as tk
 from tkinter import ttk, messagebox
-from config_normalizer import load_types_from_json, calculateNextNumber, add_copy_paste_bindings
+from config_normalizer import load_types_from_json, calculateNextNumber, add_copy_paste_bindings, format_mac_address
 
 
 class PhoneWindow(tk.Toplevel):
@@ -40,8 +40,10 @@ class PhoneWindow(tk.Toplevel):
         self.department_entry.grid(row=0, column=3, sticky="w", padx=5, pady=5)
 
         # Рядок 1
+        self.mac_var = tk.StringVar()
         ttk.Label(self, text="Статичний MAC:").grid(row=1, column=0, sticky="w", padx=5, pady=5)
-        self.mac_entry = ttk.Entry(self, width=30)
+        self.mac_entry = ttk.Entry(self, width=30, textvariable=self.mac_var)
+        self.mac_var.trace_add("write", lambda *args: format_mac_address(self, self.mac_var, self.mac_entry, "_formatting_static_mac"))
         add_copy_paste_bindings(self.mac_entry)
         self.mac_entry.grid(row=1, column=1, sticky="w", padx=5, pady=5)
 
@@ -51,8 +53,10 @@ class PhoneWindow(tk.Toplevel):
         self.model_entry.grid(row=1, column=3, sticky="w", padx=5, pady=5)
 
         # Рядок 2
+        self.random_mac_var = tk.StringVar()
         ttk.Label(self, text="Динамічний MAC:").grid(row=2, column=0, sticky="w", padx=5, pady=5)
-        self.dynamic_mac_entry = ttk.Entry(self, width=30)
+        self.dynamic_mac_entry = ttk.Entry(self, width=30, textvariable=self.random_mac_var)
+        self.random_mac_var.trace_add("write", lambda *args: format_mac_address(self, self.random_mac_var, self.dynamic_mac_entry, "_formatting_dynamic_mac"))
         add_copy_paste_bindings(self.dynamic_mac_entry)
         self.dynamic_mac_entry.grid(row=2, column=1, sticky="w", padx=5, pady=5)
 

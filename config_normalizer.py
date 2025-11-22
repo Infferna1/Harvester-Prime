@@ -2,6 +2,7 @@ import csv
 import json
 import os
 import sys
+import tkinter as tk
 
 
 def resource_path(relative_path):
@@ -63,3 +64,33 @@ def add_copy_paste_bindings(widget):
         return None
 
     widget.bind("<KeyPress>", handler)
+
+
+def format_mac_address(obj, var, entry, formatting_flag_name: str):
+    if getattr(obj, formatting_flag_name, False):
+        return
+
+    setattr(obj, formatting_flag_name, True)
+
+    def _format():
+        text = var.get()
+        cursor_pos = entry.index("insert")
+        raw = ''.join(filter(str.isalnum, text.upper()))[:12]
+        new_text = ':'.join(raw[i:i+2] for i in range(0, len(raw), 2))
+
+        clean_left = ''.join(filter(str.isalnum, text[:cursor_pos].upper()))
+        insert_pos = len(clean_left)
+        colons_before = insert_pos // 2
+        new_cursor_pos = insert_pos + colons_before
+
+        if var.get() != new_text:
+            var.set(new_text)
+
+        try:
+            entry.icursor(new_cursor_pos)
+        except:
+            pass
+
+        setattr(obj, formatting_flag_name, False)
+
+    obj.after_idle(_format)

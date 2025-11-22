@@ -8,7 +8,7 @@ from enum import Enum
 from phone_window import PhoneWindow
 from usb_window import USBWindow
 from system_info_collector import collect_system_info
-from config_normalizer import load_types_from_json, calculateNextNumber, add_copy_paste_bindings
+from config_normalizer import load_types_from_json, calculateNextNumber, add_copy_paste_bindings, format_mac_address
 
 # TODO: Normalize result tables in files PC/Phone
 
@@ -31,7 +31,7 @@ class App(tk.Tk):
         self.sn_var = tk.StringVar(value="")
         self.ip_var = tk.StringVar(value="")
         self.mac_var = tk.StringVar(value="")
-        self.mac_var.trace_add("write", lambda *args: self.format_mac_address(self.mac_var, self.mac_entry, '_formatting_mac'))
+        self.mac_var.trace_add("write", lambda *args: format_mac_address(self, self.mac_var, self.mac_entry, '_formatting_mac'))
         self.department_var = tk.StringVar()
         self.owner_var = tk.StringVar()
         self.agent_id_var = tk.StringVar()
@@ -102,7 +102,7 @@ class App(tk.Tk):
         self.mac_entry.pack(side=tk.LEFT, padx=(0, 20))
         ttk.Label(row3, text="Random MAC", width=15).pack(side=tk.LEFT)
         self.random_mac_var = tk.StringVar(value="")
-        self.random_mac_var.trace_add("write", lambda *args: self.format_mac_address(self.random_mac_var, self.random_mac_entry, '_formatting_random_mac'))
+        self.random_mac_var.trace_add("write", lambda *args: format_mac_address(self, self.random_mac_var, self.random_mac_entry, '_formatting_random_mac'))
         self.random_mac_entry = ttk.Entry(row3, textvariable=self.random_mac_var, width=30, state='readonly')
         self.random_mac_entry.pack(side=tk.LEFT)
 
@@ -245,34 +245,6 @@ class App(tk.Tk):
         add_win = USBWindow(self)
         add_win.grab_set()
 
-    def format_mac_address(self, var, entry, formatting_flag_name):
-        if hasattr(self, formatting_flag_name) and getattr(self, formatting_flag_name):
-            return
-
-        setattr(self, formatting_flag_name, True)
-
-        def _format():
-            text = var.get()
-            cursor_pos = entry.index(tk.INSERT)
-            raw = ''.join(filter(str.isalnum, text.upper()))[:12]
-            new_text = ':'.join(raw[i:i + 2] for i in range(0, len(raw), 2))
-
-            clean_left = ''.join(filter(str.isalnum, text[:cursor_pos].upper()))
-            insert_pos = len(clean_left)
-            colons_before = insert_pos // 2
-            new_cursor_pos = insert_pos + colons_before
-
-            if var.get() != new_text:
-                var.set(new_text)
-
-            try:
-                entry.icursor(new_cursor_pos)
-            except tk.TclError as err:
-                print(f"Помилка при встановленні позиції курсора: {err}")
-
-            setattr(self, formatting_flag_name, False)
-
-        self.after_idle(_format)
 
     def save_data(self):
         f = self.field_names
