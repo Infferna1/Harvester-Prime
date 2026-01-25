@@ -218,7 +218,8 @@ class App(tk.Tk):
         self.hostname_var.set(info.get("Hostname", ""))
         self.sn_var.set(info.get("BIOS_Serial", ""))
         self.ip_var.set(info.get("IP", ""))
-        self.random_mac_var.set(info.get("MAC", ""))
+        self.mac_var.set(info.get("StaticMAC", ""))
+        self.random_mac_var.set(info.get("RandomMAC", ""))
 
         self.hostname_entry.config(state='normal')
         self.sn_entry.config(state='normal')

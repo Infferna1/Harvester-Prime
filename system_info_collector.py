@@ -6,6 +6,24 @@ import win32com.client
 import wmi
 import re
 
+
+def is_random_mac(mac: str) -> bool:
+    # Check if Mac is Locally Administered (Random Mac)
+    if not mac or mac in ("N/A", "Unknown"):
+        return False
+
+    parts = mac.split(":")
+    if len(parts) != 6:
+        return False
+
+    first_byte = parts[0]
+    if len(first_byte) != 2:
+        return False
+
+    second_nibble = first_byte[1].upper()
+    return second_nibble in {"2", "6", "A", "E"}
+
+
 def can_use_console():
     try:
         proc = subprocess.run(
@@ -37,7 +55,8 @@ def collect_info_via_console():
         "Hostname": "",
         "BIOS_Serial": "",
         "IP": "",
-        "MAC": "",
+        "StaticMAC": "NA",
+        "RandomMac": "NA",
         "ConnectionType": "",
         "Description": ""
     }
@@ -95,6 +114,19 @@ def collect_info_via_console():
         info["Description"] = "N/A"
         info["ConnectionType"] = "N/A"
 
+    mac = info.get("MAC", "")
+
+    if mac and mac not in ("N/A", "Unknown"):
+        if is_random_mac(mac):
+            info["RandomMAC"] = mac
+            info["StaticMAC"] = "NA"
+        else:
+            info["StaticMAC"] = mac
+            info["RandomMAC"] = "NA"
+    else:
+        info["StaticMAC"] = "NA"
+        info["RandomMAC"] = "NA"
+
     return info
 
 def collect_info_via_libraries():
@@ -113,7 +145,8 @@ def collect_info_via_libraries():
         "Hostname": "",
         "BIOS_Serial": "",
         "IP": "",
-        "MAC": "",
+        "StaticMAC": "NA",
+        "RandomMAC": "NA",
         "ConnectionType": "",
         "Description": ""
     }
@@ -206,6 +239,19 @@ def collect_info_via_libraries():
         info["MAC"] = "N/A"
         info["Description"] = "N/A"
         info["ConnectionType"] = "N/A"
+
+    mac = info.get("MAC", "")
+
+    if mac and mac not in ("N/A", "Unknown"):
+        if is_random_mac(mac):
+            info["RandomMAC"] = mac
+            info["StaticMAC"] = "NA"
+        else:
+            info["StaticMAC"] = mac
+            info["RandomMAC"] = "NA"
+    else:
+        info["StaticMAC"] = "NA"
+        info["RandomMAC"] = "NA"
 
     return info
 
