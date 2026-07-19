@@ -11,7 +11,7 @@ class PhoneWindow(tk.Toplevel):
         self.title("Введення даних щодо МКП")
         self.parent = parent
         self.mkp_category_var = tk.StringVar(value="особистий")  # дефолтне значення
-        self.field_names = load_types_from_json("Data/ConfigData/phone_field_names.json");
+        self.field_names = load_types_from_json("Data/ConfigData/phone_field_names.json")
 
         # Завантаження типів із JSON
         self.types_config = load_types_from_json("Data/ConfigData/phone_types.json")
@@ -59,6 +59,12 @@ class PhoneWindow(tk.Toplevel):
         self.random_mac_var.trace_add("write", lambda *args: format_mac_address(self, self.random_mac_var, self.dynamic_mac_entry, "_formatting_dynamic_mac"))
         add_copy_paste_bindings(self.dynamic_mac_entry)
         self.dynamic_mac_entry.grid(row=2, column=1, sticky="w", padx=5, pady=5)
+
+        self.ip_field_var = tk.StringVar()
+        ttk.Label(self, text="IP:").grid(row=2,column=2, sticky="w", padx=5, pady=5)
+        self.ip_field_entry = ttk.Entry(self, width=30, textvariable=self.ip_field_var)
+        add_copy_paste_bindings(self.ip_field_entry)
+        self.ip_field_entry.grid(row=2, column=3, sticky="w", padx=5, pady=5)
 
         # Рядок 3: Категорія МКП
         ttk.Label(self, text="Категорія МКП:").grid(row=3, column=0, sticky="w", padx=5, pady=5)
@@ -164,6 +170,7 @@ class PhoneWindow(tk.Toplevel):
             f["department"]: self.department_entry.get(),
             f["staticMac"]: self.mac_entry.get(),
             f["randomMac"]: self.dynamic_mac_entry.get(),
+            f["ip"]: self.ip_field_entry.get(),
             f["model"]: self.model_entry.get(),
             f["phoneCategory"]: self.mkp_category_var.get(),
             f["phoneType"]: self.type_var.get(),
