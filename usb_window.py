@@ -81,7 +81,7 @@ class USBWindow(tk.Toplevel):
         self.entry_vars.append(var3)
         entry3 = ttk.Entry(frame2, textvariable=var3, width=6)
         entry3.pack(side="left", padx=2)
-        add_copy_paste_bindings(entry3)  # ✅
+        add_copy_paste_bindings(entry3)
 
         ttk.Label(frame2, text=self.texts["line2_part2"]).pack(side="left")
 
@@ -95,7 +95,7 @@ class USBWindow(tk.Toplevel):
         self.entry_vars.append(var4)
         entry4 = ttk.Entry(frame3, textvariable=var4, width=6)
         entry4.pack(side="left", padx=2)
-        add_copy_paste_bindings(entry4)  # ✅
+        add_copy_paste_bindings(entry4)
 
         ttk.Label(frame3, text=self.texts["line3_part2"]).pack(side="left")
 
@@ -103,7 +103,7 @@ class USBWindow(tk.Toplevel):
         self.entry_vars.append(var5)
         entry5 = ttk.Entry(frame3, textvariable=var5, width=6)
         entry5.pack(side="left", padx=2)
-        add_copy_paste_bindings(entry5)  # ✅
+        add_copy_paste_bindings(entry5)
 
         ttk.Label(frame3, text=self.texts["line3_part3"]).pack(side="left")
 
@@ -160,6 +160,8 @@ class USBWindow(tk.Toplevel):
         # Створюємо поле дати перевірки та заповнюємо поточною датою
         self.check_date_var = tk.StringVar(value=datetime.now().strftime("%d.%m.%Y"))
         ttk.Entry(bottom_frame, textvariable=self.check_date_var, width=12).pack(side="left", padx=5)
+
+        #TODO: Add another field, where user could enter number to calculate days in: start_date = check_date - timedelta(days=30)
 
         # Кнопка "Розрахувати"
         btn_calc = ttk.Button(bottom_frame, text="Розрахувати", command=self.calculate)
@@ -535,7 +537,7 @@ class USBWindow(tk.Toplevel):
                 serial = row.get("serialNumber", "").strip()
                 s_level_raw = row.get("sLevel", "Неідентифіковано")
                 s_level_raw = s_level_raw.strip().strip('"')  # прибираємо лапки, якщо вони є
-                device_code = type_map.get(s_level_raw, type_map.get("Неідентифіковано"))
+                device_code = s_level_raw if s_level_raw in type_map.values() else type_map.get("Неідентифіковано", "Неідентифіковано")
 
                 # DEBUG
                 print(f"[DEBUG] serial: {serial}, s_level_raw: {s_level_raw}, device_code: {device_code}")

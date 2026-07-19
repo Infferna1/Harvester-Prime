@@ -1,3 +1,4 @@
+import io
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 import csv
@@ -8,17 +9,30 @@ from config_normalizer import load_types_from_json
 # TODO: Move this to config_normalizer
 def open_text_file(file_path, mode="r"):
     """
-    Відкриває файл у UTF-8, якщо не вдалося — у CP1251.
+    Повністю зчитує файл у UTF-8, якщо не вдалося — у CP1251.
+    Повертає файлоподібний об'єкт (io.StringIO) з уже прочитаним вмістом,
+    щоб подальше читання (csv.reader і т.д.) не наштовхувалось на
+    UnicodeDecodeError під час ітерації.
     Працює тільки для читання ("r").
     """
     if "r" not in mode:
         raise ValueError("open_text_file використовується лише для читання!")
 
-    try:
-        return open(file_path, mode, encoding="utf-8")
-    except UnicodeDecodeError:
-        return open(file_path, mode, encoding="cp1251")
+    last_error = None
+    for encoding in ("utf-8", "cp1251"):
+        try:
+            with open(file_path, mode, encoding=encoding) as f:
+                content = f.read()
+            return io.StringIO(content)
+        except UnicodeDecodeError as e:
+            last_error = e
+            continue
 
+    # Якщо жодне кодування не підійшло — піднімаємо останню помилку,
+    # щоб виклик вище явно про це дізнався (замість тихого провалу).
+    raise last_error if last_error else UnicodeDecodeError(
+        "unknown", b"", 0, 1, f"Не вдалося визначити кодування файлу: {file_path}"
+    )
 
 
 class IgnoreSNWindow(tk.Toplevel):
@@ -73,7 +87,6 @@ class USBFilterWindow(tk.Toplevel):
     def set_ignore_sn(self, ignore_sn_list):
         self.ignore_sn = ignore_sn_list
 
-
     def _get_s_level_from_second_file(self, serial_number, second_file_path, type_map):
         serial_number = serial_number.strip()
         suffix = serial_number[-6:] if len(serial_number) >= 6 else serial_number
@@ -84,42 +97,37 @@ class USBFilterWindow(tk.Toplevel):
         regex_values = [v for v in s_levels.values() if v != "Неідентифіковано"]
         regex_pattern = r"(" + "|".join(map(re.escape, regex_values)) + r")"
 
-        encodings = ["utf-8", "cp1251", "utf-8-sig"]
-        for enc in encodings:
-            try:
-                print(f"[INFO] Спроба відкриття файлу {second_file_path} з кодуванням {enc}")
-                with open(second_file_path, "r", encoding=enc, newline="") as f:
-                    reader = csv.reader(f, delimiter=";")
-                    for row_count, row in enumerate(reader, start=1):
-                        if len(row) < 2:
-                            print(f"[DEBUG] Пропущено рядок {row_count} — недостатньо колонок: {row}")
-                            continue
+        try:
+            print(f"[INFO] Спроба відкриття файлу {second_file_path}")
+            with open_text_file(second_file_path, "r") as f:
+                reader = csv.reader(f, delimiter=";")
+                for row_count, row in enumerate(reader, start=1):
+                    if len(row) < 2:
+                        print(f"[DEBUG] Пропущено рядок {row_count} — недостатньо колонок: {row}")
+                        continue
 
-                        sn = row[0].strip().strip('"').replace('\ufeff', '')
-                        ob_num = row[1].strip().strip('"')
+                    sn = row[0].strip().strip('"').replace('\ufeff', '')
+                    ob_num = row[1].strip().strip('"')
 
-                        print(f"[DEBUG] Рядок {row_count}: SN='{sn}', Об'єкт='{ob_num}'")
+                    print(f"[DEBUG] Рядок {row_count}: SN='{sn}', Об'єкт='{ob_num}'")
 
-                        if suffix and suffix in sn:
-                            print(f"[MATCH] Знайдено суфікс '{suffix}' у SN '{sn}'")
+                    if suffix and suffix in sn:
+                        print(f"[MATCH] Знайдено суфікс '{suffix}' у SN '{sn}'")
 
-                            match = re.search(regex_pattern, ob_num, re.IGNORECASE)
-                            if match:
-                                found_value = match.group(1)
-                                print(f"[MATCH] Regex знайшов: '{found_value}' у '{ob_num}'")
+                        match = re.search(regex_pattern, ob_num, re.IGNORECASE)
+                        if match:
+                            found_value = match.group(1)
+                            print(f"[MATCH] Regex знайшов: '{found_value}' у '{ob_num}'")
 
-                                key = next((k for k, v in s_levels.items() if v.lower() == found_value.lower()), None)
-                                result = s_levels.get(key, s_levels.get("Неідентифіковано"))
-                                print(f"[RESULT] Знайдено рівень: {result}")
-                                return result
-                            else:
-                                print(f"[DEBUG] Regex не спрацював для об'єкта '{ob_num}'")
+                            key = next((k for k, v in s_levels.items() if v.lower() == found_value.lower()), None)
+                            result = s_levels.get(key, s_levels.get("Неідентифіковано"))
+                            print(f"[RESULT] Знайдено рівень: {result}")
+                            return result
+                        else:
+                            print(f"[DEBUG] Regex не спрацював для об'єкта '{ob_num}'")
 
-            except UnicodeDecodeError:
-                print(f"[WARNING] Не вдалося відкрити файл з кодуванням {enc}, пробуємо інше")
-                continue
-            except Exception as e:
-                print(f"[ERROR] Помилка при обробці файлу: {e}")
+        except Exception as e:
+            print(f"[ERROR] Помилка при обробці файлу {second_file_path}: {e}")
 
         fallback_result = s_levels.get("Неідентифіковано", "Неідентифіковано")
         print(f"[RESULT] За замовчуванням повертаємо: {fallback_result}")
@@ -157,10 +165,13 @@ class USBFilterWindow(tk.Toplevel):
             return
 
         serials = self._read_csv(file_path, device_types["device_types"])
+        print(f"[DEBUG] Прочитано серійних номерів з першого CSV: {len(serials)}")
+
         serials = [sn for sn in serials if sn not in self.ignore_sn]
+        print(f"[DEBUG] Залишилось після ignore_sn: {len(serials)}")
 
         if not serials:
-            messagebox.showinfo(self, "Фільтр", "Не знайдено пристроїв після фільтрації")
+            messagebox.showinfo("Фільтр", "Не знайдено пристроїв після фільтрації")
             self.destroy()
             return
 
@@ -262,15 +273,31 @@ class USBFilterWindow(tk.Toplevel):
         canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
 
     def _read_csv(self, path, valid_types):
+        """
+        Читає перший CSV і повертає список серійних номерів (rec[2])
+        для рядків, де тип пристрою (rec[1]) входить у valid_types.
+        Порівняння типів нормалізоване (strip + lower), щоб не залежати
+        від регістру чи зайвих пробілів у файлі чи в конфігу.
+        """
         result = []
+        valid_types_norm = {t.strip().lower() for t in valid_types}
+
         try:
             with open_text_file(path, "r") as f:
                 reader = csv.reader(f)
-                for rec in reader:
-                    if len(rec) >= 3 and rec[1] in valid_types:
-                        result.append(rec[2])
+                for row_count, rec in enumerate(reader, start=1):
+                    if len(rec) < 3:
+                        print(f"[DEBUG] Рядок {row_count} пропущено — недостатньо колонок: {rec}")
+                        continue
+
+                    device_type_norm = rec[1].strip().lower()
+                    if device_type_norm in valid_types_norm:
+                        result.append(rec[2].strip())
+                    else:
+                        print(f"[DEBUG] Рядок {row_count} пропущено — тип '{rec[1]}' не у valid_types")
         except Exception as e:
-            print(f"Помилка при відкритті CSV {path}: {e}")
+            print(f"[ERROR] Помилка при відкритті CSV {path}: {e}")
+            messagebox.showerror("Помилка", f"Не вдалося прочитати файл:\n{path}\n\n{e}")
 
         return result
 
