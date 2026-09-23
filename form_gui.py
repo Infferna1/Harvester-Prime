@@ -7,6 +7,7 @@ import threading
 from enum import Enum
 from phone_window import PhoneWindow
 from usb_window import USBWindow
+from usb_window_v2 import USBWindowV2
 from system_info_collector import collect_system_info
 from config_normalizer import load_types_from_json, calculateNextNumber, add_copy_paste_bindings, format_mac_address
 
@@ -135,7 +136,15 @@ class App(tk.Tk):
 
         btn_args = {'width': 12}
         ttk.Button(add_button_frame, text="Додати МКП", command=self.add_phone_button, **btn_args).pack(side=tk.LEFT, padx=5)
-        ttk.Button(add_button_frame, text="USB", command=self.on_usb_click, **btn_args).pack(side=tk.LEFT, padx=5)
+
+        # Стара кнопка "USB" прихована (self.usb_button_old лишається створеною,
+        # але не запакованою — не .pack(), щоб не займати місце в layout).
+        # Функціонал USBWindow (usb_window.py) лишається в коді незмінним,
+        # просто без входу з головного вікна.
+        self.usb_button_old = ttk.Button(add_button_frame, text="USB", command=self.on_usb_click, **btn_args)
+        # self.usb_button_old.pack(side=tk.LEFT, padx=5)  # <- приховано за вимогою
+
+        ttk.Button(add_button_frame, text="USB 2.0", command=self.on_usb_v2_click, **btn_args).pack(side=tk.LEFT, padx=5)
 
         # Логічні параметри
         ttk.Label(frame, text="\nПараметри (Так / Ні):", font=("Segoe UI", 10, "bold")).pack(anchor="w", pady=(5, 5))
@@ -244,6 +253,10 @@ class App(tk.Tk):
 
     def on_usb_click(self):
         add_win = USBWindow(self)
+        add_win.grab_set()
+
+    def on_usb_v2_click(self):
+        add_win = USBWindowV2(self)
         add_win.grab_set()
 
 
