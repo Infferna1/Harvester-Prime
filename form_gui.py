@@ -6,6 +6,7 @@ import datetime
 import threading
 from enum import Enum
 from phone_window import PhoneWindow
+from phone_window_v2 import PhoneWindowV2
 from usb_window import USBWindow
 from usb_window_v2 import USBWindowV2
 from system_info_collector import collect_system_info
@@ -130,12 +131,20 @@ class App(tk.Tk):
         self.agent_id_entry.pack(side=tk.LEFT, padx=(0, 20))
         add_copy_paste_bindings(self.agent_id_entry)
 
-        # Кнопка "Додати МКП" під відділом і власником
+        # Кнопки під відділом і власником
         add_button_frame = ttk.Frame(frame)
         add_button_frame.pack(fill=tk.X, pady=(10, 20))
 
         btn_args = {'width': 12}
-        ttk.Button(add_button_frame, text="Додати МКП", command=self.add_phone_button, **btn_args).pack(side=tk.LEFT, padx=5)
+
+        # Стара кнопка "Додати МКП" прихована (self.phone_button_old лишається
+        # створеною, але не запакованою — не .pack(), щоб не займати місце в
+        # layout). Функціонал PhoneWindow (phone_window.py) лишається в коді
+        # незмінним, просто без входу з головного вікна.
+        self.phone_button_old = ttk.Button(add_button_frame, text="Додати МКП", command=self.add_phone_button, **btn_args)
+        # self.phone_button_old.pack(side=tk.LEFT, padx=5)  # <- приховано за вимогою
+
+        ttk.Button(add_button_frame, text="МКП 2.0", command=self.on_phone_v2_click, **btn_args).pack(side=tk.LEFT, padx=5)
 
         # Стара кнопка "USB" прихована (self.usb_button_old лишається створеною,
         # але не запакованою — не .pack(), щоб не займати місце в layout).
@@ -249,6 +258,12 @@ class App(tk.Tk):
         responsible = self.owner_var.get()
         department = self.department_var.get()
         add_win = PhoneWindow(self, responsible_value=responsible, department_value=department)
+        add_win.grab_set()
+
+    def on_phone_v2_click(self):
+        responsible = self.owner_var.get()
+        department = self.department_var.get()
+        add_win = PhoneWindowV2(self, responsible_value=responsible, department_value=department)
         add_win.grab_set()
 
     def on_usb_click(self):
