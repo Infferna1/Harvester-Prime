@@ -628,12 +628,25 @@ class USBWindowV2(tk.Toplevel):
             return
 
         try:
-            network_labels = load_types_from_json(f"{CONFIG_DIR}/pc_type_network_labels.json").get("labels", {})
+            network_label_rules = load_types_from_json(f"{CONFIG_DIR}/network_labels.json").get("rules", [])
         except Exception:
-            network_labels = {}
-        # Порядок міток у підсумку - як вони вперше зустрічаються в конфізі.
-        ordered_labels = list(dict.fromkeys(network_labels.values()))
-        FALLBACK_LABEL = "Невизначено (немає в pc_type_network_labels.json)"
+            network_label_rules = []
+        # Мітка визначається переліком правил (перше, що підійшло):
+        # обов'язково за 'network' - значенням колонки 'network' КОНКРЕТНОГО
+        # ПК (Список ПК / collected_data.csv), і опційно ще й за 'pcTypes' -
+        # коли та сама мережа (напр. "Без підключення") має різний підпис
+        # в залежності від типу ПК.
+        ordered_labels = list(dict.fromkeys(r.get("label", "") for r in network_label_rules if r.get("label")))
+
+        def _resolve_network_label(network_value, pc_type_value):
+            for rule in network_label_rules:
+                if rule.get("network") != network_value:
+                    continue
+                rule_pc_types = rule.get("pcTypes")
+                if rule_pc_types and pc_type_value not in rule_pc_types:
+                    continue
+                return rule.get("label")
+            return None
 
         s_level_order = policy.get("sLevelOrder") or []
         s_level_rank = {name: i for i, name in enumerate(s_level_order)}
@@ -666,6 +679,7 @@ class USBWindowV2(tk.Toplevel):
             pc_info = pc_index.get(pc_serial.lower())
             hostname = pc_info.get("hostname", "") if pc_info else pc_serial
             pc_type_value = (pc_info.get("pcType") if pc_info else "") or ""
+            network_value = (pc_info.get("network") if pc_info else "") or ""
 
             content = None
             for encoding in ("utf-8", "cp1251"):
@@ -695,7 +709,7 @@ class USBWindowV2(tk.Toplevel):
                     usb_serial, {"device": device_name, "last_date": None, "hostnames": {}}
                 )
                 if hostname:
-                    entry["hostnames"][hostname] = pc_type_value
+                    entry["hostnames"][hostname] = {"pcType": pc_type_value, "network": network_value}
                 if connected_dt and (entry["last_date"] is None or connected_dt > entry["last_date"]):
                     entry["last_date"] = connected_dt
                     entry["device"] = device_name
@@ -741,8 +755,18 @@ class USBWindowV2(tk.Toplevel):
                 unidentified_count += 1
 
                 labels_seen = set()
-                for pc_type_value in info["hostnames"].values():
-                    label = network_labels.get(pc_type_value) or FALLBACK_LABEL
+                for host_info in info["hostnames"].values():
+                    network_value = host_info.get("network", "")
+                    pc_type_value_h = host_info.get("pcType", "")
+                    label = _resolve_network_label(network_value, pc_type_value_h)
+                    if label is None:
+                        if network_value:
+                            # Є значення 'network', але жодне правило з
+                            # network_labels.json не підійшло - типова
+                            # одруківка чи нове значення мережі/pcType.
+                            label = f"{network_value} (немає відповідного правила в network_labels.json)"
+                        else:
+                            label = "невідома мережа (порожнє поле 'network' у collected_data.csv)"
                     labels_seen.add(label)
                 for label in labels_seen:
                     unidentified_label_counts[label] = unidentified_label_counts.get(label, 0) + 1
@@ -753,7 +777,8 @@ class USBWindowV2(tk.Toplevel):
             # максимум -> порушення для будь-якого ПК.
             device_rank = s_level_rank.get(device_s_level, unknown_rank)
             violating_hosts = []
-            for host, pc_type_value in info["hostnames"].items():
+            for host, host_info in info["hostnames"].items():
+                pc_type_value = host_info.get("pcType", "")
                 if pc_type_value and pc_type_value not in pc_type_max_slevel:
                     unmapped_pc_types.add(pc_type_value)
                 allowed_s_level = pc_type_max_slevel.get(pc_type_value, fallback_max_slevel)
@@ -839,9 +864,11 @@ class USBWindowV2(tk.Toplevel):
                 templates.get("unidentifiedHeader", "Встановлено факти підключення неідентифікованих ЗНІ:")
             )
             label_line_template = templates.get("unidentifiedLabelLine", "{count} ЗНІ до АРМ {label};")
-            labels_to_print = ordered_labels + (
-                [FALLBACK_LABEL] if FALLBACK_LABEL in unidentified_label_counts else []
-            )
+            # Мітки з network_labels.json - у заданому там порядку, а тоді
+            # - всі "нештатні" мітки (значення network, яких немає в
+            # конфізі, або порожнє поле), відсортовані за алфавітом.
+            extra_labels = sorted(set(unidentified_label_counts) - set(ordered_labels))
+            labels_to_print = ordered_labels + extra_labels
             for label in labels_to_print:
                 count = unidentified_label_counts.get(label)
                 if count:
