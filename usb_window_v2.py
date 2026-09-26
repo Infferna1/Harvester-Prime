@@ -63,7 +63,7 @@ class USBWindowV2(tk.Toplevel):
     def __init__(self, parent):
         super().__init__(parent)
         self.title("USB 2.0")
-        self.geometry("450x420")
+        self.geometry("440x600")
         self.transient(parent)
         self.grab_set()
 
@@ -88,7 +88,7 @@ class USBWindowV2(tk.Toplevel):
 
         btn_opts = {"width": 30}
         ttk.Button(frame, text="Відфільтрувати теку", command=self.filter_folder, **btn_opts).pack(pady=5)
-        ttk.Button(frame, text="Журнал ЗНІ (Excel → CSV)", command=self.convert_journal_excel, **btn_opts).pack(pady=5)
+        ttk.Button(frame, text="Конвертувати журнал (Excel → CSV)", command=self.convert_journal_excel, **btn_opts).pack(pady=5)
         ttk.Button(frame, text="Ідентифікувати ЗНІ", command=self.identify_zni, **btn_opts).pack(pady=5)
         ttk.Button(frame, text="Додати ресурси", command=self.add_resources, **btn_opts).pack(pady=5)
         ttk.Button(frame, text="Згенерувати звіт", command=self.generate_report, **btn_opts).pack(pady=5)
@@ -106,6 +106,33 @@ class USBWindowV2(tk.Toplevel):
         ttk.Label(frame, textvariable=self.status_var, anchor="w", wraplength=380, justify="left").pack(
             fill="x", pady=(10, 0)
         )
+
+        # Текстовий підсумок звіту (заповнюється після успішного
+        # "Згенерувати звіт") - кількість виявлених/ідентифікованих ЗНІ
+        # та розбивка неідентифікованих за типом АРМ.
+        ttk.Label(frame, text="Підсумок звіту:", font=("Segoe UI", 9, "bold")).pack(anchor="w", pady=(15, 0))
+        summary_frame = ttk.Frame(frame)
+        summary_frame.pack(fill="both", expand=True, pady=(2, 0))
+        # ВАЖЛИВО: тут навмисно НЕ використовується state="disabled" -
+        # у tkinter це блокує не лише редагування, а й виділення
+        # мишкою/копіювання тексту. Замість цього поле лишається
+        # "normal", а введення з клавіатури блокується окремим
+        # біндингом (_block_summary_edit), який пропускає тільки
+        # навігацію (стрілки/Home/End/PgUp/PgDn) та Ctrl+C/Ctrl+A.
+        self.summary_text = tk.Text(summary_frame, height=8, wrap="word")
+        summary_scroll = ttk.Scrollbar(summary_frame, orient="vertical", command=self.summary_text.yview)
+        self.summary_text.configure(yscrollcommand=summary_scroll.set)
+        self.summary_text.pack(side="left", fill="both", expand=True)
+        summary_scroll.pack(side="right", fill="y")
+
+        # Все введення з клавіатури йде через один обробник. Свідомо НЕ
+        # використовуємо біндинги типу "<Control-c>"/"<Control-a>" - вони
+        # прив'язані до keysym (символ 'c'/'a'), а на укр/рос розкладці
+        # ці ж фізичні клавіші видають кирилицю ('с'/'ф' тощо), тож такі
+        # біндинги просто не спрацьовують. Замість цього дивимось на
+        # event.keycode (фізичний код клавіші - однаковий незалежно від
+        # розкладки) та прапорець Ctrl у event.state.
+        self.summary_text.bind("<Key>", self._block_summary_edit)
 
     def _resources_summary(self):
         pc_line = (
@@ -128,6 +155,65 @@ class USBWindowV2(tk.Toplevel):
     def _set_status(self, text):
         self.status_var.set(text)
         self.update_idletasks()
+
+    def _show_summary(self, text):
+        self.summary_text.delete("1.0", tk.END)
+        self.summary_text.insert("1.0", text)
+
+    def _select_all_summary(self):
+        self.summary_text.tag_add("sel", "1.0", "end-1c")
+        self.summary_text.mark_set("insert", "end-1c")
+        self.summary_text.see("insert")
+
+    # Фізичні коди клавіш A та C (Windows virtual-key codes) - не залежать
+    # від поточної розкладки клавіатури, на відміну від keysym.
+    _VK_A = 65
+    _VK_C = 67
+
+    def _block_summary_edit(self, event):
+        """
+        Робить self.summary_text "тільки для читання", не позбавляючи
+        можливості виділяти/копіювати текст (на відміну від
+        state="disabled", який в tkinter блокує і це теж).
+
+        Ctrl+C/Ctrl+A визначаються за event.keycode (фізична клавіша),
+        а не за keysym - інакше на укр/рос розкладці вони б не
+        спрацьовували, бо ті самі клавіші видають кирилицю ('с', 'ф').
+        """
+        ctrl_pressed = bool(event.state & 0x4)
+
+        if ctrl_pressed and event.keycode == self._VK_C:
+            self.summary_text.event_generate("<<Copy>>")
+            return "break"
+
+        if ctrl_pressed and event.keycode == self._VK_A:
+            self._select_all_summary()
+            return "break"
+
+        navigation_keys = {
+            "Left", "Right", "Up", "Down", "Home", "End", "Prior", "Next",
+            "Shift_L", "Shift_R", "Control_L", "Control_R",
+        }
+        if event.keysym in navigation_keys:
+            return None
+
+        return "break"
+
+    def _count_filtered_result_rows(self):
+        """
+        Кількість записів у результаті кроку "Відфільтрувати теку"
+        (usb_result_v2.csv), без заголовку. Саме це число вважається
+        "ЗНІ виявлено в реєстрах АРМ" у підсумку звіту. Якщо крок не
+        виконувався (self.filtered_result_path порожній) - None.
+        """
+        if not self.filtered_result_path or not os.path.isfile(self.filtered_result_path):
+            return None
+        try:
+            with open(self.filtered_result_path, "r", encoding="utf-8", newline="") as f:
+                row_count = sum(1 for _ in csv.reader(f))
+            return max(row_count - 1, 0)  # мінус заголовок
+        except Exception:
+            return None
 
     # ------------------------------------------------------ 1. Фільтрація
 
@@ -541,6 +627,27 @@ class USBWindowV2(tk.Toplevel):
             messagebox.showerror("Помилка", f"Не вдалося прочитати pc_type_policy.json:\n{e}")
             return
 
+        try:
+            network_label_rules = load_types_from_json(f"{CONFIG_DIR}/network_labels.json").get("rules", [])
+        except Exception:
+            network_label_rules = []
+        # Мітка визначається переліком правил (перше, що підійшло):
+        # обов'язково за 'network' - значенням колонки 'network' КОНКРЕТНОГО
+        # ПК (Список ПК / collected_data.csv), і опційно ще й за 'pcTypes' -
+        # коли та сама мережа (напр. "Без підключення") має різний підпис
+        # в залежності від типу ПК.
+        ordered_labels = list(dict.fromkeys(r.get("label", "") for r in network_label_rules if r.get("label")))
+
+        def _resolve_network_label(network_value, pc_type_value):
+            for rule in network_label_rules:
+                if rule.get("network") != network_value:
+                    continue
+                rule_pc_types = rule.get("pcTypes")
+                if rule_pc_types and pc_type_value not in rule_pc_types:
+                    continue
+                return rule.get("label")
+            return None
+
         s_level_order = policy.get("sLevelOrder") or []
         s_level_rank = {name: i for i, name in enumerate(s_level_order)}
         # Неідентифікований/невідомий sLevel -> ранг вище за будь-який реальний
@@ -572,6 +679,7 @@ class USBWindowV2(tk.Toplevel):
             pc_info = pc_index.get(pc_serial.lower())
             hostname = pc_info.get("hostname", "") if pc_info else pc_serial
             pc_type_value = (pc_info.get("pcType") if pc_info else "") or ""
+            network_value = (pc_info.get("network") if pc_info else "") or ""
 
             content = None
             for encoding in ("utf-8", "cp1251"):
@@ -601,7 +709,7 @@ class USBWindowV2(tk.Toplevel):
                     usb_serial, {"device": device_name, "last_date": None, "hostnames": {}}
                 )
                 if hostname:
-                    entry["hostnames"][hostname] = pc_type_value
+                    entry["hostnames"][hostname] = {"pcType": pc_type_value, "network": network_value}
                 if connected_dt and (entry["last_date"] is None or connected_dt > entry["last_date"]):
                     entry["last_date"] = connected_dt
                     entry["device"] = device_name
@@ -624,6 +732,10 @@ class USBWindowV2(tk.Toplevel):
             "Наявність інформації", "Примітки",
         ])
 
+        identified_count = 0
+        unidentified_count = 0
+        unidentified_label_counts = {}
+
         for idx, serial in enumerate(ordered_serials, start=1):
             info = devices[serial]
             journal_entry = journal_index.get(serial)
@@ -634,19 +746,39 @@ class USBWindowV2(tk.Toplevel):
                 responsible_person = journal_entry.get("ResponsiblePerson", "")
                 checked = "+"
                 device_s_level = (journal_entry.get("sLevel") or "").strip()
+                identified_count += 1
             else:
                 inventory_number = "Неідентифіковано"
                 responsible_person = "Неідентифіковано"
                 checked = "-"
                 device_s_level = "Неідентифіковано"
+                unidentified_count += 1
+
+                labels_seen = set()
+                for host_info in info["hostnames"].values():
+                    network_value = host_info.get("network", "")
+                    pc_type_value_h = host_info.get("pcType", "")
+                    label = _resolve_network_label(network_value, pc_type_value_h)
+                    if label is None:
+                        if network_value:
+                            # Є значення 'network', але жодне правило з
+                            # network_labels.json не підійшло - типова
+                            # одруківка чи нове значення мережі/pcType.
+                            label = f"{network_value} (немає відповідного правила в network_labels.json)"
+                        else:
+                            label = "невідома мережа (порожнє поле 'network' у collected_data.csv)"
+                    labels_seen.add(label)
+                for label in labels_seen:
+                    unidentified_label_counts[label] = unidentified_label_counts.get(label, 0) + 1
 
             # Порушення допуску: ЗНІ підключався до ПК, який дозволяє sLevel
-            # НИЖЧИЙ за фактичний sLevel цього ЗНІ . Неідентифікований ЗНІ
+            # НИЖЧИЙ за фактичний sLevel цього ЗНІ. Неідентифікований ЗНІ
             # (unknown_rank = найвищий+1) завжди перевищує дозволений
             # максимум -> порушення для будь-якого ПК.
             device_rank = s_level_rank.get(device_s_level, unknown_rank)
             violating_hosts = []
-            for host, pc_type_value in info["hostnames"].items():
+            for host, host_info in info["hostnames"].items():
+                pc_type_value = host_info.get("pcType", "")
                 if pc_type_value and pc_type_value not in pc_type_max_slevel:
                     unmapped_pc_types.add(pc_type_value)
                 allowed_s_level = pc_type_max_slevel.get(pc_type_value, fallback_max_slevel)
@@ -693,6 +825,56 @@ class USBWindowV2(tk.Toplevel):
 
         wb.save(output_path)
         self._set_status(f"Звіт збережено -> {output_path} ({len(ordered_serials)} записів)")
+
+        total_found = self._count_filtered_result_rows()
+        if total_found is None:
+            # "Відфільтрувати теку" не запускали для цієї теки - рахуємо
+            # від того, що фактично увійшло у звіт.
+            total_found = len(ordered_serials)
+
+        identified_pct = round(identified_count / total_found * 100) if total_found else 0
+        unidentified_pct = round(unidentified_count / total_found * 100) if total_found else 0
+
+        try:
+            templates = load_types_from_json(f"{CONFIG_DIR}/report_summary_templates.json")
+        except Exception:
+            templates = {}
+
+        ctx = {
+            "total_found": total_found,
+            "identified_count": identified_count,
+            "identified_pct": identified_pct,
+            "unidentified_count": unidentified_count,
+            "unidentified_pct": unidentified_pct,
+        }
+
+        def tpl(key, default):
+            return templates.get(key, default).format(**ctx)
+
+        summary_lines = [
+            tpl("totalLine", "{total_found} ЗНІ виявлено в реєстрах АРМ, при цьому надано на "
+                              "перевірку {identified_count} ЗНІ ({identified_pct}%)."),
+            tpl("identifiedLine", "Реєстрацію {identified_count} ЗНІ ({identified_pct}%) підтверджено "
+                                   "згідно журналу обліку електронних носіїв інформації."),
+            tpl("unidentifiedLine", "Реєстрацію {unidentified_count} ЗНІ ({unidentified_pct}%) "
+                                     "підтвердити не вдалося."),
+        ]
+        if unidentified_label_counts:
+            summary_lines.append(
+                templates.get("unidentifiedHeader", "Встановлено факти підключення неідентифікованих ЗНІ:")
+            )
+            label_line_template = templates.get("unidentifiedLabelLine", "{count} ЗНІ до АРМ {label};")
+            # Мітки з network_labels.json - у заданому там порядку, а тоді
+            # - всі "нештатні" мітки (значення network, яких немає в
+            # конфізі, або порожнє поле), відсортовані за алфавітом.
+            extra_labels = sorted(set(unidentified_label_counts) - set(ordered_labels))
+            labels_to_print = ordered_labels + extra_labels
+            for label in labels_to_print:
+                count = unidentified_label_counts.get(label)
+                if count:
+                    summary_lines.append(label_line_template.format(count=count, label=label))
+
+        self._show_summary("\n".join(summary_lines))
 
         info_msg = f"Звіт збережено:\n{output_path}\nЗаписів: {len(ordered_serials)}"
         if unmapped_pc_types:
@@ -749,6 +931,13 @@ class USBWindowV2(tk.Toplevel):
 
 
 class ResourceSelectionWindowV2(tk.Toplevel):
+    """
+    Вікно вибору ресурсів. Навмисно НЕ закривається після вибору кожного
+    окремого ресурсу (Список ПК / Тека з USB / Ідентифікований журнал ЗНІ) -
+    інакше довелось би тричі наново тиснути "Додати ресурси". Закривається
+    лише хрестиком вікна.
+    """
+
     def __init__(self, parent):
         super().__init__(parent)
         self.title("Який ресурс додати?")
@@ -771,7 +960,6 @@ class ResourceSelectionWindowV2(tk.Toplevel):
         )
         if file_path:
             self.master.load_pc_list(file_path)
-        self.destroy()
 
     def select_identified_journal(self):
         file_path = filedialog.askopenfilename(
@@ -780,10 +968,8 @@ class ResourceSelectionWindowV2(tk.Toplevel):
         )
         if file_path:
             self.master.load_identified_journal(file_path)
-        self.destroy()
 
     def select_folder(self):
         folder_path = filedialog.askdirectory(title="Оберіть теку з USB")
         if folder_path:
             self.master.set_usb_folder(folder_path)
-        self.destroy()
