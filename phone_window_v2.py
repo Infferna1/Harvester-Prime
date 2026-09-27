@@ -35,13 +35,16 @@ def _load_report_header():
     return load_types_from_json(f"{CONFIG_DIR}/report_header.json")["header"]
 
 
+IP_ALLOWED_CHARS = set("0123456789.-")
+
+
 def format_ip_address(obj, var, entry, formatting_flag_name: str):
     """
-    Аналог format_mac_address (config_normalizer.py), але для IPv4.
-
-    Залишає лише цифри та крапки, розбиває на групи максимум по 3 цифри,
-    кожна група обрізається так, щоб не перевищувати 255, автоматично
-    розставляє крапки. Максимум 4 групи (255.255.255.255).
+    IP-адреса не завжди чиста IPv4 (255.255.255.255) - буває і
+    170.25.1.123, і діапазони через "-" тощо, тож НЕ нав'язуємо групи по
+    3 цифри й обмеження в 255 (як раніше). Просто не даємо ввести нічого,
+    крім цифр і "." / "-" (IP_ALLOWED_CHARS) - решту символів відкидаємо,
+    а що саме вписати - вирішує користувач сам.
     """
     if getattr(obj, formatting_flag_name, False):
         return
@@ -53,23 +56,11 @@ def format_ip_address(obj, var, entry, formatting_flag_name: str):
         except Exception:
             cursor = len(raw)
 
-        digits_only = "".join(ch for ch in raw if ch.isdigit())
-        digits_only = digits_only[:12]  # 4 групи по максимум 3 цифри
+        filtered = "".join(ch for ch in raw if ch in IP_ALLOWED_CHARS)
 
-        groups = []
-        i = 0
-        while i < len(digits_only) and len(groups) < 4:
-            group = digits_only[i:i + 3]
-            while len(group) > 1 and int(group) > 255:
-                group = group[:-1]
-            groups.append(group)
-            i += len(group)
-
-        formatted = ".".join(groups)
-
-        if formatted != raw:
-            var.set(formatted)
-            new_cursor = min(len(formatted), cursor + (len(formatted) - len(raw)))
+        if filtered != raw:
+            var.set(filtered)
+            new_cursor = min(len(filtered), cursor + (len(filtered) - len(raw)))
             try:
                 entry.icursor(new_cursor)
             except Exception:
@@ -105,6 +96,7 @@ class PhoneWindowV2(tk.Toplevel):
 
         ttk.Button(frame, text="Додати МКП", width=25, command=self.open_add_window).pack(pady=5)
         ttk.Button(frame, text="Згенерувати звіт", width=25, command=self.generate_report).pack(pady=5)
+        ttk.Button(frame, text="Закрити", width=25, command=self.destroy).pack(pady=(15, 0))
 
     def open_add_window(self):
         add_win = PhoneEntryWindowV2(self, responsible_value=self.responsible_value)
@@ -185,7 +177,7 @@ class PhoneEntryWindowV2(tk.Toplevel):
         # Random MAC - зберігається в CSV, але у звіт НЕ виводиться
         # (report_header.json його не містить, у report_row не додається).
         self.random_mac_var = tk.StringVar()
-        ttk.Label(self, text="Випадковий MAC:").grid(row=row, column=0, sticky="w", padx=5, pady=5)
+        ttk.Label(self, text="Random MAC:").grid(row=row, column=0, sticky="w", padx=5, pady=5)
         self.random_mac_entry = ttk.Entry(self, width=30, textvariable=self.random_mac_var)
         self.random_mac_var.trace_add(
             "write", lambda *args: format_mac_address(self, self.random_mac_var, self.random_mac_entry, "_formatting_random_mac")
@@ -213,7 +205,7 @@ class PhoneEntryWindowV2(tk.Toplevel):
         self.spz_combo.grid(row=row, column=1, sticky="w", padx=5, pady=5)
         row += 1
 
-        self._make_toggle(self, row, "Trellix Mobile Security:", "hx"); row += 1
+        self._make_toggle(self, row, "HX:", "hx"); row += 1
         self._make_toggle(self, row, "ШПЗ:", "shpz"); row += 1
 
         # Стороннє ПЗ + список (через кому), активний лише якщо "Присутнє"
