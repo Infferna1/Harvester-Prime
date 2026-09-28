@@ -776,7 +776,12 @@ class USBWindowV2(tk.Toplevel):
                     usb_serial, {"device": device_name, "last_date": None, "hostnames": {}}
                 )
                 if hostname:
-                    entry["hostnames"][hostname] = {"pcType": pc_type_value, "network": network_value}
+                    entry["hostnames"][hostname] = {
+                        "pcType": pc_type_value,
+                        "network": network_value,
+                        "pcFound": pc_info is not None,
+                        "pcSerial": pc_serial,
+                    }
                 if connected_dt and (entry["last_date"] is None or connected_dt > entry["last_date"]):
                     entry["last_date"] = connected_dt
                     entry["device"] = device_name
@@ -827,6 +832,13 @@ class USBWindowV2(tk.Toplevel):
         identified_count = 0
         unidentified_count = 0
         unidentified_label_counts = {}
+        # ЗНІ, що підключались хоча б до одного ПК, якого взагалі немає у
+        # "Списку ПК" (collected_data.csv) - виводяться одним спільним
+        # рядком з переліком серійників ПК через кому, а не окремим рядком
+        # на кожен унікальний серійник (інакше при багатьох ненайдених ПК
+        # підсумок звіту "розтягується" на купу однотипних рядків).
+        missing_pc_zni_count = 0
+        missing_pc_serials = set()
 
         for idx, serial in enumerate(ordered_serials, start=1):
             info = devices[serial]
@@ -847,7 +859,20 @@ class USBWindowV2(tk.Toplevel):
                 unidentified_count += 1
 
                 labels_seen = set()
+                has_missing_pc = False
                 for host_info in info["hostnames"].values():
+                    if not host_info.get("pcFound", True):
+                        # ПК за серійником з імені файлу в теці USB взагалі
+                        # не знайдено у "Списку ПК" (поле 'sn' у
+                        # collected_data.csv) - тому й network_value
+                        # порожній, а не тому, що поле 'network' не
+                        # заповнене для цього ПК. Такі серійники збираються
+                        # окремо (missing_pc_serials) і виводяться одним
+                        # спільним рядком, а не як звичайна мітка мережі.
+                        has_missing_pc = True
+                        missing_pc_serials.add(host_info.get("pcSerial", ""))
+                        continue
+
                     network_value = host_info.get("network", "")
                     pc_type_value_h = host_info.get("pcType", "")
                     label = _resolve_network_label(network_value, pc_type_value_h)
@@ -862,6 +887,8 @@ class USBWindowV2(tk.Toplevel):
                     labels_seen.add(label)
                 for label in labels_seen:
                     unidentified_label_counts[label] = unidentified_label_counts.get(label, 0) + 1
+                if has_missing_pc:
+                    missing_pc_zni_count += 1
 
             # Порушення допуску: ЗНІ підключався до ПК, який дозволяє sLevel
             # НИЖЧИЙ за фактичний sLevel цього ЗНІ. Неідентифікований ЗНІ
@@ -918,11 +945,12 @@ class USBWindowV2(tk.Toplevel):
         wb.save(output_path)
         self._set_status(f"Звіт збережено -> {output_path} ({len(ordered_serials)} записів)")
 
-        total_found = self._count_filtered_result_rows()
-        if total_found is None:
-            # "Відфільтрувати теку" не запускали для цієї теки - рахуємо
-            # від того, що фактично увійшло у звіт.
-            total_found = len(ordered_serials)
+        # "ЗНІ виявлено" рахуємо від того, що реально увійшло у звіт (тобто
+        # вже ПІСЛЯ фільтра за датою) - НЕ від self._count_filtered_result_rows(),
+        # бо той рахує рядки usb_result_v2.csv (крок "Відфільтрувати теку"),
+        # а той крок не знає про дату/кількість днів і завжди дає число
+        # за весь період, а не за вказаний користувачем термін.
+        total_found = len(ordered_serials)
 
         identified_pct = round(identified_count / total_found * 100) if total_found else 0
         unidentified_pct = round(unidentified_count / total_found * 100) if total_found else 0
@@ -944,7 +972,7 @@ class USBWindowV2(tk.Toplevel):
             return templates.get(key, default).format(**ctx)
 
         summary_lines = [
-            tpl("totalLine", "{total_found} ЗНІ виявлено в реєстрах АРМ, при цьому надано на "
+            tpl("totalLine", "{total_found} ЗНІ виявлено в реєстрах АРМ, при цьому оперативним складом пунктів управління надано на "
                               "перевірку {identified_count} ЗНІ ({identified_pct}%)."),
             tpl("identifiedLine", "Реєстрацію {identified_count} ЗНІ ({identified_pct}%) підтверджено "
                                    "згідно журналу обліку електронних носіїв інформації."),
@@ -965,6 +993,16 @@ class USBWindowV2(tk.Toplevel):
                 count = unidentified_label_counts.get(label)
                 if count:
                     summary_lines.append(label_line_template.format(count=count, label=label))
+
+        if missing_pc_serials:
+            missing_serials_str = ", ".join(sorted(missing_pc_serials))
+            summary_lines.append(
+                templates.get(
+                    "missingPcLine",
+                    "{count} ЗНІ підключались до ПК, не знайдених у 'Списку ПК' "
+                    "(collected_data.csv) S/N: {serials};",
+                ).format(count=missing_pc_zni_count, serials=missing_serials_str)
+            )
 
         self._show_summary("\n".join(summary_lines))
 
