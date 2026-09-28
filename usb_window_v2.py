@@ -57,7 +57,11 @@ class USBWindowV2(tk.Toplevel):
                                              номер ЗНІ / Інвентарний номер / Відповідальна
                                              особа / Дата останнього підключення /
                                              Перевірено групою / Наявність інформації /
-                                             Примітки
+                                             Примітки.
+                                             При генерації запитує дату (відносно якої
+                                             рахується давність) та кількість днів -
+                                             ЗНІ, що підключались раніше цього терміну,
+                                             у звіт не потрапляють.
     """
 
     def __init__(self, parent):
@@ -570,6 +574,60 @@ class USBWindowV2(tk.Toplevel):
 
     # -------------------------------------------------- 5. Звіт (Excel)
 
+    def _ask_report_date_filter(self):
+        """
+        Питає у користувача:
+          1) дату, відносно якої рахується давність останнього підключення
+             (за замовчуванням - сьогодні);
+          2) максимальну кількість днів давності - ЗНІ, останнє підключення
+             яких відносно введеної дати БІЛЬШЕ за це число днів, у звіт
+             не потраплять (напр. якщо ввести 10 - все, що підключалось
+             10 днів тому й пізніше, лишається; 11+ днів тому - вилучається).
+
+        Повертає (reference_date: datetime, max_days: int) або None, якщо
+        користувач скасував один з діалогів.
+        """
+        default_ref_date = datetime.now().strftime("%d.%m.%Y")
+        reference_date = None
+        while reference_date is None:
+            ref_date_str = simpledialog.askstring(
+                "Дата",
+                "Введіть дату, відносно якої рахувати давність останнього "
+                "підключення ЗНІ (дд.мм.рррр):",
+                initialvalue=default_ref_date,
+                parent=self,
+            )
+            if ref_date_str is None:
+                return None
+            ref_date_str = ref_date_str.strip()
+            try:
+                reference_date = datetime.strptime(ref_date_str, "%d.%m.%Y")
+            except ValueError:
+                messagebox.showerror(
+                    "Помилка", "Дата має бути у форматі дд.мм.рррр, наприклад 27.09.2026."
+                )
+
+        max_days = None
+        while max_days is None:
+            max_days_str = simpledialog.askstring(
+                "Кількість днів",
+                "Врахувати у звіті лише ЗНІ, останнє підключення яких було не "
+                "раніше вказаної вище кількості днів тому.\n"
+                "Наприклад, 10 - лишає підключення за останні 10 днів, "
+                "все, що підключалось 11+ днів тому, у звіт не потрапить:",
+                initialvalue="10",
+                parent=self,
+            )
+            if max_days_str is None:
+                return None
+            max_days_str = max_days_str.strip()
+            if max_days_str.isdigit():
+                max_days = int(max_days_str)
+            else:
+                messagebox.showerror("Помилка", "Введіть ціле невід'ємне число днів.")
+
+        return reference_date, max_days
+
     def generate_report(self):
         """
         Формує фінальний Excel-звіт за зразком:
@@ -585,6 +643,10 @@ class USBWindowV2(tk.Toplevel):
           - Список ПК        -> серійник ПК -> hostname
           - Ідентифікований
             журнал ЗНІ       -> серійник ЗНІ -> Інвентарний номер / Відповідальна особа
+
+        Перед побудовою звіту питає дату + кількість днів давності
+        (_ask_report_date_filter) і вилучає зі звіту ЗНІ, останнє
+        підключення яких старіше за вказаний термін.
         """
         if not self.usb_folder:
             messagebox.showwarning("Увага", "Спершу обери 'Тека з USB' через кнопку 'Додати ресурси'.")
@@ -611,6 +673,11 @@ class USBWindowV2(tk.Toplevel):
         )
         if punkt is None:
             return
+
+        date_filter = self._ask_report_date_filter()
+        if date_filter is None:
+            return
+        reference_date, max_days = date_filter
 
         try:
             device_types = {
@@ -722,6 +789,31 @@ class USBWindowV2(tk.Toplevel):
         ordered_serials = sorted(
             devices.keys(), key=lambda s: devices[s]["last_date"] or datetime.min, reverse=True
         )
+
+        # --- Фільтр за давністю останнього підключення (дата + max_days
+        # з _ask_report_date_filter). ЗНІ, останнє підключення яких старіше
+        # за max_days днів відносно reference_date - зі звіту прибираються
+        # повністю. ЗНІ з нерозпізнаною датою підключення (last_date is
+        # None) лишаються у звіті - неможливо визначити давність, тож
+        # безпечніше не втрачати запис.
+        excluded_by_date = 0
+        filtered_serials = []
+        for serial in ordered_serials:
+            last_date = devices[serial]["last_date"]
+            if last_date is not None and (reference_date - last_date).days > max_days:
+                excluded_by_date += 1
+                continue
+            filtered_serials.append(serial)
+        ordered_serials = filtered_serials
+
+        if not ordered_serials:
+            messagebox.showinfo(
+                "Звіт",
+                f"Після фільтра за давністю (не пізніше {max_days} дн. до "
+                f"{reference_date.strftime('%d.%m.%Y')}) не залишилось жодного запису "
+                f"(вилучено {excluded_by_date}).",
+            )
+            return
 
         wb = Workbook()
         ws = wb.active
@@ -876,7 +968,11 @@ class USBWindowV2(tk.Toplevel):
 
         self._show_summary("\n".join(summary_lines))
 
-        info_msg = f"Звіт збережено:\n{output_path}\nЗаписів: {len(ordered_serials)}"
+        info_msg = (
+            f"Звіт збережено:\n{output_path}\nЗаписів: {len(ordered_serials)}\n\n"
+            f"Фільтр давності: не пізніше {max_days} дн. до "
+            f"{reference_date.strftime('%d.%m.%Y')} (вилучено за цим фільтром: {excluded_by_date})"
+        )
         if unmapped_pc_types:
             info_msg += (
                 f"\n\nУвага: у pc_type_policy.json не знайдено ці pcType (застосовано "
