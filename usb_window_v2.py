@@ -694,26 +694,28 @@ class USBWindowV2(tk.Toplevel):
             messagebox.showerror("Помилка", f"Не вдалося прочитати pc_type_policy.json:\n{e}")
             return
 
+        # Опис мережі визначається ПРЯМО за pcType (колонки 'network' у
+        # collected_data.csv більше немає): pc_type_network_labels.json ->
+        # groups[{label, pcTypes[]}]. Перша група, у якій є цей pcType, дає
+        # мітку для фрази '<N> ЗНІ до АРМ <label>;'. Без тихих запасних
+        # значень: якщо файл не читається - зупиняємось з помилкою.
         try:
-            network_label_rules = load_types_from_json(f"{CONFIG_DIR}/network_labels.json").get("rules", [])
-        except Exception:
-            network_label_rules = []
-        # Мітка визначається переліком правил (перше, що підійшло):
-        # обов'язково за 'network' - значенням колонки 'network' КОНКРЕТНОГО
-        # ПК (Список ПК / collected_data.csv), і опційно ще й за 'pcTypes' -
-        # коли та сама мережа (напр. "Без підключення") має різний підпис
-        # в залежності від типу ПК.
-        ordered_labels = list(dict.fromkeys(r.get("label", "") for r in network_label_rules if r.get("label")))
+            network_groups = load_types_from_json(f"{CONFIG_DIR}/pc_type_network_labels.json").get("groups", [])
+        except Exception as e:
+            messagebox.showerror("Помилка", f"Не вдалося прочитати pc_type_network_labels.json:\n{e}")
+            return
+        if not network_groups:
+            messagebox.showerror("Помилка", "У pc_type_network_labels.json відсутній або порожній 'groups'.")
+            return
 
-        def _resolve_network_label(network_value, pc_type_value):
-            for rule in network_label_rules:
-                if rule.get("network") != network_value:
-                    continue
-                rule_pc_types = rule.get("pcTypes")
-                if rule_pc_types and pc_type_value not in rule_pc_types:
-                    continue
-                return rule.get("label")
-            return None
+        ordered_labels = list(dict.fromkeys(g.get("label", "") for g in network_groups if g.get("label")))
+        pc_type_to_label = {}
+        for group in network_groups:
+            for pc_type_name in group.get("pcTypes", []):
+                pc_type_to_label.setdefault(pc_type_name, group.get("label"))
+
+        def _resolve_network_label(pc_type_value):
+            return pc_type_to_label.get(pc_type_value)
 
         s_level_order = policy.get("sLevelOrder") or []
         s_level_rank = {name: i for i, name in enumerate(s_level_order)}
@@ -733,6 +735,7 @@ class USBWindowV2(tk.Toplevel):
             messagebox.showinfo("Звіт", "У обраній теці з USB не знайдено CSV-файлів.")
             return
 
+        pc_list_name = os.path.basename(self.pc_list_path)  # ім'я файлу "Списку ПК" для повідомлень
         pc_index = self._build_pc_index()
         journal_index = self._build_identified_journal_index()
 
@@ -745,8 +748,7 @@ class USBWindowV2(tk.Toplevel):
             pc_serial = os.path.splitext(os.path.basename(filepath))[0].strip()
             pc_info = pc_index.get(pc_serial.lower())
             hostname = pc_info.get("hostname", "") if pc_info else pc_serial
-            pc_type_value = (pc_info.get("pcType") if pc_info else "") or ""
-            network_value = (pc_info.get("network") if pc_info else "") or ""
+            pc_type_value = (pc_info.get("pcCategory") if pc_info else "") or ""
 
             content = None
             for encoding in ("utf-8", "cp1251"):
@@ -778,7 +780,6 @@ class USBWindowV2(tk.Toplevel):
                 if hostname:
                     entry["hostnames"][hostname] = {
                         "pcType": pc_type_value,
-                        "network": network_value,
                         "pcFound": pc_info is not None,
                         "pcSerial": pc_serial,
                     }
@@ -864,26 +865,24 @@ class USBWindowV2(tk.Toplevel):
                     if not host_info.get("pcFound", True):
                         # ПК за серійником з імені файлу в теці USB взагалі
                         # не знайдено у "Списку ПК" (поле 'sn' у
-                        # collected_data.csv) - тому й network_value
-                        # порожній, а не тому, що поле 'network' не
-                        # заповнене для цього ПК. Такі серійники збираються
-                        # окремо (missing_pc_serials) і виводяться одним
-                        # спільним рядком, а не як звичайна мітка мережі.
+                        # collected_data.csv) - тому й pcType порожній.
+                        # Такі серійники збираються окремо
+                        # (missing_pc_serials) і виводяться одним спільним
+                        # рядком, а не як звичайна мітка мережі.
                         has_missing_pc = True
                         missing_pc_serials.add(host_info.get("pcSerial", ""))
                         continue
 
-                    network_value = host_info.get("network", "")
                     pc_type_value_h = host_info.get("pcType", "")
-                    label = _resolve_network_label(network_value, pc_type_value_h)
+                    label = _resolve_network_label(pc_type_value_h)
                     if label is None:
-                        if network_value:
-                            # Є значення 'network', але жодне правило з
-                            # network_labels.json не підійшло - типова
-                            # одруківка чи нове значення мережі/pcType.
-                            label = f"{network_value} (немає відповідного правила в network_labels.json)"
+                        if pc_type_value_h:
+                            # pcType є, але жодна група з
+                            # pc_type_network_labels.json його не містить -
+                            # типова одруківка або нова категорія АРМ.
+                            label = f"{pc_type_value_h} (немає групи в pc_type_network_labels.json)"
                         else:
-                            label = "невідома мережа (порожнє поле 'network' у collected_data.csv)"
+                            label = f"невідомий тип АРМ (порожнє поле 'pcCategory' у {pc_list_name})"
                     labels_seen.add(label)
                 for label in labels_seen:
                     unidentified_label_counts[label] = unidentified_label_counts.get(label, 0) + 1
@@ -972,7 +971,7 @@ class USBWindowV2(tk.Toplevel):
             return templates.get(key, default).format(**ctx)
 
         summary_lines = [
-            tpl("totalLine", "{total_found} ЗНІ виявлено в реєстрах АРМ, при цьому оперативним складом пунктів управління надано на "
+            tpl("totalLine", "{total_found} ЗНІ виявлено в реєстрах АРМ, при цьому надано на "
                               "перевірку {identified_count} ЗНІ ({identified_pct}%)."),
             tpl("identifiedLine", "Реєстрацію {identified_count} ЗНІ ({identified_pct}%) підтверджено "
                                    "згідно журналу обліку електронних носіїв інформації."),
@@ -1000,8 +999,8 @@ class USBWindowV2(tk.Toplevel):
                 templates.get(
                     "missingPcLine",
                     "{count} ЗНІ підключались до ПК, не знайдених у 'Списку ПК' "
-                    "(collected_data.csv) S/N: {serials};",
-                ).format(count=missing_pc_zni_count, serials=missing_serials_str)
+                    "({pc_list_name}): {serials};",
+                ).format(count=missing_pc_zni_count, serials=missing_serials_str, pc_list_name=pc_list_name)
             )
 
         self._show_summary("\n".join(summary_lines))

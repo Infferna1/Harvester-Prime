@@ -1,10 +1,8 @@
-import subprocess
-import json
 import socket
 import psutil
+import pythoncom
 import win32com.client
 import wmi
-import re
 
 
 def is_random_mac(mac: str) -> bool:
@@ -24,110 +22,37 @@ def is_random_mac(mac: str) -> bool:
     return second_nibble in {"2", "6", "A", "E"}
 
 
-def can_use_console():
+def _get_active_route_ip():
+    """
+    IP інтерфейсу, через який ОС зараз реально маршрутизує трафік, через WMI:
+    беремо дефолтний маршрут (Destination/Mask "0.0.0.0",
+    найменший Metric1 - як у виводі "route print") з Win32_IP4RouteTable,
+    дістаємо його InterfaceIndex, і вже по ньому - IP з Win32_NetworkAdapterConfiguration.
+    Це той самий COM/WMI механізм, що і для Win32_NetworkAdapter нижче, жодного
+    зовнішнього процесу чи мережевого пакету. Повертає None, якщо
+    дефолтного маршруту немає (мережі взагалі немає).
+    """
     try:
-        proc = subprocess.run(
-            ["cmd.exe", "/c", "ipconfig /all"],
-            capture_output=True,
-            text=True,
-            timeout=5,
-            creationflags=subprocess.CREATE_NO_WINDOW
-        )
-        return proc.returncode == 0 and bool(proc.stdout.strip())
+        wmi_net = win32com.client.GetObject("winmgmts:root\\cimv2")
+        routes = list(wmi_net.ExecQuery(
+            "SELECT InterfaceIndex, Metric1 FROM Win32_IP4RouteTable "
+            "WHERE Destination='0.0.0.0' AND Mask='0.0.0.0'"
+        ))
+        if not routes:
+            return None
+        best_route = min(routes, key=lambda r: r.Metric1)
+
+        configs = list(wmi_net.ExecQuery(
+            f"SELECT IPAddress FROM Win32_NetworkAdapterConfiguration "
+            f"WHERE InterfaceIndex={best_route.InterfaceIndex}"
+        ))
+        if not configs or not configs[0].IPAddress:
+            return None
+
+        return next((ip for ip in configs[0].IPAddress if ip and ":" not in ip), None)
     except Exception:
-        return False
-
-def run_powershell_command(cmd):
-    try:
-        completed = subprocess.run(
-            ["powershell", "-NoProfile", "-Command", cmd],
-            capture_output=True, text=True, timeout=5, creationflags=subprocess.CREATE_NO_WINDOW
-        )
-        if completed.returncode == 0:
-            return completed.stdout.strip()
-        else:
-            return ""
-    except Exception:
-        return ""
-
-def collect_info_via_console():
-    info = {
-        "Hostname": "",
-        "BIOS_Serial": "",
-        "IP": "",
-        "StaticMAC": "NA",
-        "RandomMac": "NA",
-        "ConnectionType": "",
-        "Description": ""
-    }
-
-    info["Hostname"] = run_powershell_command("hostname")
-
-    bios_sn_cmd = "Get-CimInstance Win32_BIOS | Select-Object -ExpandProperty SerialNumber"
-    bios_sn = run_powershell_command(bios_sn_cmd)
-    info["BIOS_Serial"] = bios_sn if bios_sn else "Unknown"
-
-    adapters_cmd = r'''
-    Get-NetAdapter -Physical | 
-    Where-Object {
-        $_.Status -eq "Up" -and
-        ($_.HardwareInterface -eq $true) -and
-        ($_.InterfaceDescription -notmatch 'virtual|vmware|hyper-v|loopback|host-only|tunnel|bridge|bluetooth|vpn')
-    } | Select-Object InterfaceDescription, MacAddress, Status, Name | ConvertTo-Json
-    '''
-    adapters_json = run_powershell_command(adapters_cmd)
-
-    try:
-        adapters = json.loads(adapters_json)
-        if isinstance(adapters, dict):
-            adapters = [adapters]
-    except json.JSONDecodeError:
-        adapters = []
-
-    ipconfig_output = run_powershell_command("ipconfig /all")
-
-    def find_ip_for_adapter(adapter_name):
-        pattern = re.compile(rf"{re.escape(adapter_name)}.*?IPv4 Address.*?:\s*([\d\.]+)", re.DOTALL | re.IGNORECASE)
-        match = pattern.search(ipconfig_output)
-        if match:
-            return match.group(1)
         return None
 
-    selected_adapter = None
-    for adapter in adapters:
-        name = adapter.get("Name", "")
-        mac = adapter.get("MacAddress", "").replace('-', ':')
-        desc = adapter.get("InterfaceDescription", "")
-        ip = find_ip_for_adapter(name)
-
-        if ip:
-            info["IP"] = ip
-            info["MAC"] = mac
-            info["Description"] = desc
-            info["ConnectionType"] = "Ethernet" if "ethernet" in name.lower() or "ethernet" in desc.lower() else "Wi-Fi"
-            selected_adapter = adapter
-            break
-
-    if not selected_adapter:
-        info["IP"] = "N/A"
-        info["MAC"] = "N/A"
-        info["Description"] = "N/A"
-        info["ConnectionType"] = "N/A"
-
-    mac = info.get("MAC", "")
-
-    if mac and mac not in ("N/A", "Unknown"):
-        if is_random_mac(mac):
-            info["RandomMAC"] = mac
-            info["StaticMAC"] = "NA"
-        else:
-            info["StaticMAC"] = mac
-            info["RandomMAC"] = "NA"
-    else:
-        info["StaticMAC"] = "NA"
-        info["RandomMAC"] = "NA"
-
-    return info
 
 def collect_info_via_libraries():
     def is_virtual_string(s):
@@ -208,11 +133,24 @@ def collect_info_via_libraries():
                 "Description": desc
             })
 
+        # Спершу пробуємо визначити, який інтерфейс ОС РЕАЛЬНО зараз
+        # використовує для виходу в мережу (а не вгадуємо за назвою) -
+        # через дефолтний маршрут із WMI (_get_active_route_ip, без
+        # жодного сокета). Знайдену IP шукаємо серед вже відфільтрованих
+        # candidates.
         selected = None
-        for c in candidates:
-            if "ethernet" in c["Name"].lower() or "ethernet" in c["Description"].lower():
-                selected = c
-                break
+        active_ip = _get_active_route_ip()
+        if active_ip:
+            selected = next((c for c in candidates if c["IP"] == active_ip), None)
+
+        # Fallback (якщо трюк не спрацював - немає мережі взагалі, чи IP
+        # не збіглась із жодним candidate) - стара логіка за пріоритетом
+        # назви: Ethernet -> Wi-Fi -> перший активний невіртуальний.
+        if not selected:
+            for c in candidates:
+                if "ethernet" in c["Name"].lower() or "ethernet" in c["Description"].lower():
+                    selected = c
+                    break
 
         if not selected:
             for c in candidates:
@@ -255,8 +193,23 @@ def collect_info_via_libraries():
 
     return info
 
+
 def collect_system_info():
-    if can_use_console():
-        return collect_info_via_console()
-    else:
+    """
+    ЄДИНИЙ шлях збору даних - через нативні бібліотеки Python (socket,
+    psutil, wmi, win32com.client), без жодного виклику cmd.exe чи
+    powershell.exe.
+
+    ВАЖЛИВО: цю функцію в form_gui.py викликають з фонового потоку
+    (threading.Thread), а wmi/win32com.client вимагають, щоб COM був
+    ініціалізований (CoInitialize) саме в тому потоці, де їх
+    використовують - без цього wmi.WMI()/win32com.client.GetObject()
+    мовчки падають у except, і в результаті все виходить
+    "Unknown"/"N/A". Тому ініціалізуємо COM тут явно, на початку
+    функції, і звільняємо після завершення.
+    """
+    pythoncom.CoInitialize()
+    try:
         return collect_info_via_libraries()
+    finally:
+        pythoncom.CoUninitialize()
